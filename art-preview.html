@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>建筑立绘 · 风格预览</title>
+<style>
+  body { margin: 0; padding: 32px; background: #1c1917; color: #e7e5e4; font-family: system-ui, sans-serif; }
+  h1 { font-size: 18px; margin-bottom: 8px; color: #fbbf24; }
+  h2 { font-size: 15px; margin: 32px 0 16px; color: #e7e5e4; border-left: 3px solid #fbbf24; padding-left: 10px; }
+  .row { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-end; }
+  .card { background: #292524; border: 1px solid #57534e; border-radius: 12px; padding: 20px; text-align: center; }
+  .card .label { font-size: 12px; color: #a8a29e; margin-top: 12px; }
+  .slot {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: linear-gradient(135deg, #fbbf24, #d97706);
+    border: 2px solid rgba(255,255,255,0.7);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.3s;
+  }
+  .slot.selected {
+    box-shadow: 0 0 0 4px #f472b6, 0 0 20px rgba(244,114,182,0.6);
+    transform: scale(1.1);
+  }
+  .slot svg { width: 80%; height: 80%; }
+  .big { width: 160px; height: 160px; }
+  .big svg { width: 100%; height: 100%; }
+  /* 城墙环预览：模拟 16:9 地图 */
+  .map-mock {
+    position: relative; width: 400px; aspect-ratio: 16/9;
+    border-radius: 16px; overflow: hidden;
+    background: linear-gradient(135deg, #44403c, #292524);
+    border: 2px solid #57534e;
+  }
+  .map-mock .bg {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 45%, #78350f 0%, #451a03 60%, #1c1917 100%);
+    opacity: 0.7;
+  }
+  .map-mock .village-dot {
+    position: absolute; width: 14px; height: 14px; border-radius: 50%;
+    background: #fbbf24; box-shadow: 0 0 8px #fbbf24;
+  }
+  .map-mock svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .wall-label { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); font-size: 11px; color: #e7e5e4; background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 10px; }
+</style>
+</head>
+<body>
+  <h1>🏛️ 封禅台立绘 · 风格预览</h1>
+
+  <div class="row">
+    <div class="card">
+      <div class="slot">
+        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="fire" cx="50%" cy="60%" r="60%">
+              <stop offset="0%" stop-color="#fde68a"/>
+              <stop offset="40%" stop-color="#f97316"/>
+              <stop offset="100%" stop-color="#b91c1c"/>
+            </radialGradient>
+            <linearGradient id="et" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d97706"/>
+            </linearGradient>
+            <linearGradient id="es" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#92400e"/><stop offset="100%" stop-color="#78350f"/>
+            </linearGradient>
+            <linearGradient id="es2" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#78350f"/><stop offset="100%" stop-color="#a16207"/>
+            </linearGradient>
+          </defs>
+          <ellipse cx="60" cy="108" rx="44" ry="6" fill="#000" opacity="0.28"/>
+          <polygon points="20,64 60,52 100,64 60,76" fill="url(#et)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="20,64 20,84 60,96 60,76" fill="url(#es)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="100,64 100,84 60,96 60,76" fill="url(#es2)" stroke="#78350f" stroke-width="0.8"/>
+          <line x1="22" y1="71" x2="58" y2="82" stroke="#78350f" stroke-width="0.6" opacity="0.5"/>
+          <line x1="62" y1="82" x2="98" y2="71" stroke="#78350f" stroke-width="0.6" opacity="0.5"/>
+          <polygon points="30,48 60,38 90,48 60,58" fill="url(#et)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="30,48 30,62 60,72 60,58" fill="url(#es)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="90,48 90,62 60,72 60,58" fill="url(#es2)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="40,32 60,25 80,32 60,39" fill="url(#et)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="40,32 40,44 60,51 60,39" fill="url(#es)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="80,32 80,44 60,51 60,39" fill="url(#es2)" stroke="#78350f" stroke-width="0.8"/>
+          <g>
+            <rect x="40.5" y="18" width="3" height="12" rx="1" fill="#0ea5e9" stroke="#0369a1" stroke-width="0.5"/>
+            <circle cx="42" cy="18" r="2" fill="#38bdf8" stroke="#0369a1" stroke-width="0.4"/>
+            <rect x="76.5" y="18" width="3" height="12" rx="1" fill="#0ea5e9" stroke="#0369a1" stroke-width="0.5"/>
+            <circle cx="78" cy="18" r="2" fill="#38bdf8" stroke="#0369a1" stroke-width="0.4"/>
+            <rect x="46.5" y="10" width="3" height="12" rx="1" fill="#0ea5e9" stroke="#0369a1" stroke-width="0.5"/>
+            <circle cx="48" cy="10" r="2" fill="#38bdf8" stroke="#0369a1" stroke-width="0.4"/>
+            <rect x="70.5" y="10" width="3" height="12" rx="1" fill="#0ea5e9" stroke="#0369a1" stroke-width="0.5"/>
+            <circle cx="72" cy="10" r="2" fill="#38bdf8" stroke="#0369a1" stroke-width="0.4"/>
+          </g>
+          <ellipse cx="60" cy="26" rx="11" ry="3.5" fill="#78350f" stroke="#451a03" stroke-width="0.6"/>
+          <path d="M52 25 L60 18 L68 25 Z" fill="#92400e" stroke="#451a03" stroke-width="0.5"/>
+          <path d="M54 26 L60 20 L66 26 Z" fill="#b45309" stroke="#451a03" stroke-width="0.5"/>
+          <path d="M60 8 C54 14 52 18 55 22 C57 20 58 21 60 19 C62 21 63 20 65 22 C68 18 66 14 60 8 Z" fill="url(#fire)"/>
+          <path d="M60 12 C56 16 55 19 57 21 C59 20 60 21 60 19 C60 21 61 20 63 21 C65 19 64 16 60 12 Z" fill="#fef3c7" opacity="0.8"/>
+          <path d="M58 6 C54 2 56 -1 58 -4" stroke="#a8a29e" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.5"/>
+          <path d="M62 5 C66 1 64 -2 62 -5" stroke="#a8a29e" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.4"/>
+          <path d="M60 4 C60 0 58 -2 60 -5" stroke="#d6d3d1" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.4"/>
+        </svg>
+      </div>
+      <div class="label">地图上的小尺寸（默认态）</div>
+    </div>
+
+    <div class="card">
+      <div class="slot selected">
+        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="fire2" cx="50%" cy="60%" r="60%">
+              <stop offset="0%" stop-color="#fde68a"/>
+              <stop offset="40%" stop-color="#f97316"/>
+              <stop offset="100%" stop-color="#b91c1c"/>
+            </radialGradient>
+            <linearGradient id="et2" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d97706"/>
+            </linearGradient>
+            <linearGradient id="es2b" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#92400e"/><stop offset="100%" stop-color="#78350f"/>
+            </linearGradient>
+            <linearGradient id="es2c" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#78350f"/><stop offset="100%" stop-color="#a16207"/>
+            </linearGradient>
+          </defs>
+          <ellipse cx="60" cy="108" rx="44" ry="6" fill="#000" opacity="0.28"/>
+          <polygon points="20,64 60,52 100,64 60,76" fill="url(#et2)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="20,64 20,84 60,96 60,76" fill="url(#es2b)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="100,64 100,84 60,96 60,76" fill="url(#es2c)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="30,48 60,38 90,48 60,58" fill="url(#et2)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="30,48 30,62 60,72 60,58" fill="url(#es2b)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="90,48 90,62 60,72 60,58" fill="url(#es2c)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="40,32 60,25 80,32 60,39" fill="url(#et2)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="40,32 40,44 60,51 60,39" fill="url(#es2b)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="80,32 80,44 60,51 60,39" fill="url(#es2c)" stroke="#78350f" stroke-width="0.8"/>
+          <ellipse cx="60" cy="26" rx="11" ry="3.5" fill="#78350f" stroke="#451a03" stroke-width="0.6"/>
+          <path d="M52 25 L60 18 L68 25 Z" fill="#92400e" stroke="#451a03" stroke-width="0.5"/>
+          <path d="M60 8 C54 14 52 18 55 22 C57 20 58 21 60 19 C62 21 63 20 65 22 C68 18 66 14 60 8 Z" fill="url(#fire2)"/>
+          <path d="M60 12 C56 16 55 19 57 21 C59 20 60 21 60 19 C60 21 61 20 63 21 C65 19 64 16 60 12 Z" fill="#fef3c7" opacity="0.8"/>
+        </svg>
+      </div>
+      <div class="label">选中高亮态（发光环 + 放大）</div>
+    </div>
+
+    <div class="card">
+      <div class="big">
+        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="fire3" cx="50%" cy="60%" r="60%">
+              <stop offset="0%" stop-color="#fde68a"/>
+              <stop offset="40%" stop-color="#f97316"/>
+              <stop offset="100%" stop-color="#b91c1c"/>
+            </radialGradient>
+            <linearGradient id="et3" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d97706"/>
+            </linearGradient>
+            <linearGradient id="es3" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#92400e"/><stop offset="100%" stop-color="#78350f"/>
+            </linearGradient>
+            <linearGradient id="es3b" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#78350f"/><stop offset="100%" stop-color="#a16207"/>
+            </linearGradient>
+          </defs>
+          <ellipse cx="60" cy="108" rx="44" ry="6" fill="#000" opacity="0.28"/>
+          <polygon points="20,64 60,52 100,64 60,76" fill="url(#et3)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="20,64 20,84 60,96 60,76" fill="url(#es3)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="100,64 100,84 60,96 60,76" fill="url(#es3b)" stroke="#78350f" stroke-width="0.8"/>
+          <line x1="22" y1="71" x2="58" y2="82" stroke="#78350f" stroke-width="0.6" opacity="0.5"/>
+          <line x1="62" y1="82" x2="98" y2="71" stroke="#78350f" stroke-width="0.6" opacity="0.5"/>
+          <polygon points="30,48 60,38 90,48 60,58" fill="url(#et3)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="30,48 30,62 60,72 60,58" fill="url(#es3)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="90,48 90,62 60,72 60,58" fill="url(#es3b)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="40,32 60,25 80,32 60,39" fill="url(#et3)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="40,32 40,44 60,51 60,39" fill="url(#es3)" stroke="#78350f" stroke-width="0.8"/>
+          <polygon points="80,32 80,44 60,51 60,39" fill="url(#es3b)" stroke="#78350f" stroke-width="0.8"/>
+          <g>
+            <rect x="40.5" y="18" width="3" height="12" rx="1" fill="#0ea5e9" stroke="#0369a1" stroke-width="0.5"/>
+            <circle cx="42" cy="18" r="2" fill="#38bdf8" stroke="#0369a1" stroke-width="0.4"/>
+            <rect x="76.5" y="18" width="3" height="12" rx="1" fill="#0ea5e9" stroke="#0369a1" stroke-width="0.5"/>
+            <circle cx="78" cy="18" r="2" fill="#38bdf8" stroke="#0369a1" stroke-width="0.4"/>
+            <rect x="46.5" y="10" width="3" height="12" rx="1" fill="#0ea5e9" stroke="#0369a1" stroke-width="0.5"/>
+            <circle cx="48" cy="10" r="2" fill="#38bdf8" stroke="#0369a1" stroke-width="0.4"/>
+            <rect x="70.5" y="10" width="3" height="12" rx="1" fill="#0ea5e9" stroke="#0369a1" stroke-width="0.5"/>
+            <circle cx="72" cy="10" r="2" fill="#38bdf8" stroke="#0369a1" stroke-width="0.4"/>
+          </g>
+          <ellipse cx="60" cy="26" rx="11" ry="3.5" fill="#78350f" stroke="#451a03" stroke-width="0.6"/>
+          <path d="M52 25 L60 18 L68 25 Z" fill="#92400e" stroke="#451a03" stroke-width="0.5"/>
+          <path d="M54 26 L60 20 L66 26 Z" fill="#b45309" stroke="#451a03" stroke-width="0.5"/>
+          <path d="M60 8 C54 14 52 18 55 22 C57 20 58 21 60 19 C62 21 63 20 65 22 C68 18 66 14 60 8 Z" fill="url(#fire3)"/>
+          <path d="M60 12 C56 16 55 19 57 21 C59 20 60 21 60 19 C60 21 61 20 63 21 C65 19 64 16 60 12 Z" fill="#fef3c7" opacity="0.8"/>
+          <path d="M58 6 C54 2 56 -1 58 -4" stroke="#a8a29e" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.5"/>
+          <path d="M62 5 C66 1 64 -2 62 -5" stroke="#a8a29e" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.4"/>
+          <path d="M60 4 C60 0 58 -2 60 -5" stroke="#d6d3d1" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.4"/>
+        </svg>
+      </div>
+      <div class="label">详情面板大尺寸（160px）</div>
+    </div>
+  </div>
+
+  <p style="margin-top:24px;color:#a8a29e;font-size:12px;max-width:600px;line-height:1.7">
+    风格说明：夯土三层台基（顶亮侧暗模拟光照）+ 顶部燔柴祭火（黄→橙→红径向渐变）+ 四隅青玉柱（礼天）+ 袅袅青烟。<br/>
+    选中高亮通过容器 <code style="color:#f472b6">ring + scale</code> 实现，不修改 SVG 内部元素，因此不存在回滚问题。
+  </p>
+
+  <!-- ========== 城墙预览 ========== -->
+  <h2>🧱 城墙设计 · 环绕村落 + 等级进化</h2>
+
+  <div class="row">
+    <!-- 城墙立绘（详情面板） -->
+    <div class="card">
+      <div class="big">
+        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="ws" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a8a29e"/><stop offset="100%" stop-color="#57534e"/></linearGradient>
+            <linearGradient id="wsd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#78716c"/><stop offset="100%" stop-color="#44403c"/></linearGradient>
+            <linearGradient id="wr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#b91c1c"/><stop offset="100%" stop-color="#7f1d1d"/></linearGradient>
+          </defs>
+          <ellipse cx="60" cy="108" rx="50" ry="5" fill="#000" opacity="0.25"/>
+          <rect x="8" y="62" width="104" height="38" fill="url(#ws)" stroke="#44403c" stroke-width="1"/>
+          <g>
+            <rect x="8" y="64" width="14" height="8" fill="none" stroke="#57534e" stroke-width="0.4" opacity="0.6"/>
+            <rect x="23" y="64" width="14" height="8" fill="none" stroke="#57534e" stroke-width="0.4" opacity="0.6"/>
+            <rect x="38" y="64" width="14" height="8" fill="none" stroke="#57534e" stroke-width="0.4" opacity="0.6"/>
+            <rect x="53" y="64" width="14" height="8" fill="none" stroke="#57534e" stroke-width="0.4" opacity="0.6"/>
+            <rect x="68" y="64" width="14" height="8" fill="none" stroke="#57534e" stroke-width="0.4" opacity="0.6"/>
+            <rect x="83" y="64" width="14" height="8" fill="none" stroke="#57534e" stroke-width="0.4" opacity="0.6"/>
+            <rect x="98" y="64" width="14" height="8" fill="none" stroke="#57534e" stroke-width="0.4" opacity="0.6"/>
+            <rect x="15.5" y="73" width="14" height="8" fill="none" stroke="#57534e" stroke-width="0.4" opacity="0.6"/>
+            <rect x="30.5" y="73" width="14" height="8" fill="none" stroke="#57534e" stroke-width="0.4" opacity="0.6"/>
+            <rect x="45.5" y="73" width="14" height="8" fill="none" stroke="#57534e" stroke-width="0.4" opacity="0.6"/>
+            <rect x="60.5" y="73" width="14" height="8" fill="none" stroke="#57534e" stroke-width="0.4" opacity="0.6"/>
+            <rect x="75.5" y="73" width="14" height="8" fill="none" stroke="#57534e" stroke-width="0.4" opacity="0.6"/>
+            <rect x="90.5" y="73" width="14" height="8" fill="none" stroke="#57534e" stroke-width="0.4" opacity="0.6"/>
+          </g>
+          <rect x="8" y="56" width="5" height="8" fill="url(#ws)" stroke="#44403c" stroke-width="0.6"/>
+          <rect x="16" y="56" width="5" height="8" fill="url(#ws)" stroke="#44403c" stroke-width="0.6"/>
+          <rect x="24" y="56" width="5" height="8" fill="url(#ws)" stroke="#44403c" stroke-width="0.6"/>
+          <rect x="32" y="56" width="5" height="8" fill="url(#ws)" stroke="#44403c" stroke-width="0.6"/>
+          <rect x="40" y="56" width="5" height="8" fill="url(#ws)" stroke="#44403c" stroke-width="0.6"/>
+          <rect x="80" y="56" width="5" height="8" fill="url(#ws)" stroke="#44403c" stroke-width="0.6"/>
+          <rect x="88" y="56" width="5" height="8" fill="url(#ws)" stroke="#44403c" stroke-width="0.6"/>
+          <rect x="96" y="56" width="5" height="8" fill="url(#ws)" stroke="#44403c" stroke-width="0.6"/>
+          <rect x="104" y="56" width="5" height="8" fill="url(#ws)" stroke="#44403c" stroke-width="0.6"/>
+          <rect x="46" y="30" width="28" height="36" fill="url(#wsd)" stroke="#292524" stroke-width="1"/>
+          <line x1="46" y1="48" x2="74" y2="48" stroke="#292524" stroke-width="0.4" opacity="0.5"/>
+          <line x1="46" y1="58" x2="74" y2="58" stroke="#292524" stroke-width="0.4" opacity="0.5"/>
+          <rect x="56" y="42" width="8" height="10" rx="1" fill="#1c1917" stroke="#0c0a09" stroke-width="0.5"/>
+          <rect x="46" y="24" width="4" height="7" fill="url(#wsd)" stroke="#292524" stroke-width="0.5"/>
+          <rect x="53" y="24" width="4" height="7" fill="url(#wsd)" stroke="#292524" stroke-width="0.5"/>
+          <rect x="60" y="24" width="4" height="7" fill="url(#wsd)" stroke="#292524" stroke-width="0.5"/>
+          <rect x="67" y="24" width="4" height="7" fill="url(#wsd)" stroke="#292524" stroke-width="0.5"/>
+          <polygon points="42,24 78,24 74,18 46,18" fill="url(#wr)" stroke="#7f1d1d" stroke-width="0.6"/>
+          <polygon points="44,18 76,18 72,13 48,13" fill="#dc2626" opacity="0.8"/>
+          <path d="M52 100 L52 82 Q60 70 68 82 L68 100 Z" fill="#451a03" stroke="#1c1917" stroke-width="1"/>
+          <line x1="60" y1="74" x2="60" y2="100" stroke="#1c1917" stroke-width="0.8"/>
+          <circle cx="55" cy="84" r="0.8" fill="#fbbf24"/>
+          <circle cx="65" cy="84" r="0.8" fill="#fbbf24"/>
+          <circle cx="55" cy="94" r="0.8" fill="#fbbf24"/>
+          <circle cx="65" cy="94" r="0.8" fill="#fbbf24"/>
+        </svg>
+      </div>
+      <div class="label">城墙立绘（详情面板，160px）</div>
+    </div>
+  </div>
+
+  <p style="margin-top:16px;color:#a8a29e;font-size:12px;max-width:600px;line-height:1.7">
+    城墙立绘 = 石砖墙身（带砖纹）+ 墙顶垛口 + 中央敌楼（箭窗+红顶飞檐）+ 拱形城门（铜钉）。
+  </p>
+
+  <!-- 城墙环不同等级 -->
+  <h2>🏯 城墙环 · 地图环绕效果（随等级进化）</h2>
+  <div class="row">
+    <div class="card">
+      <div class="map-mock">
+        <div class="bg"></div>
+        <div class="village-dot" style="top:45%;left:48%"></div>
+        <div class="village-dot" style="top:31%;left:40%"></div>
+        <div class="village-dot" style="top:58%;left:26%"></div>
+        <div class="village-dot" style="top:26%;left:60%"></div>
+        <div class="village-dot" style="top:64%;left:60%"></div>
+        <svg viewBox="0 0 100 56.25" preserveAspectRatio="none">
+          <ellipse cx="50" cy="28.125" rx="46" ry="23.5" fill="none" stroke="#a16207" stroke-width="1.68"/>
+          <ellipse cx="50" cy="28.125" rx="46" ry="23.5" fill="none" stroke="#ca8a04" stroke-width="0.42" opacity="0.7"/>
+          <ellipse cx="50" cy="28.125" rx="46" ry="23.5" fill="none" stroke="#854d0e" stroke-width="2.88" stroke-dasharray="4.3 4.3" opacity="0.9"/>
+        </svg>
+        <div class="wall-label">Lv 1 · 夯土围墙</div>
+      </div>
+      <div class="label">薄、棕色、少量垛口</div>
+    </div>
+
+    <div class="card">
+      <div class="map-mock">
+        <div class="bg"></div>
+        <div class="village-dot" style="top:45%;left:48%"></div>
+        <div class="village-dot" style="top:31%;left:40%"></div>
+        <div class="village-dot" style="top:58%;left:26%"></div>
+        <div class="village-dot" style="top:26%;left:60%"></div>
+        <div class="village-dot" style="top:64%;left:60%"></div>
+        <svg viewBox="0 0 100 56.25" preserveAspectRatio="none">
+          <ellipse cx="50" cy="28.125" rx="46" ry="23.5" fill="none" stroke="#78716c" stroke-width="4.2"/>
+          <ellipse cx="50" cy="28.125" rx="46" ry="23.5" fill="none" stroke="#a8a29e" stroke-width="1.05" opacity="0.7"/>
+          <ellipse cx="50" cy="28.125" rx="46" ry="23.5" fill="none" stroke="#57534e" stroke-width="5.4" stroke-dasharray="2.9 2.9" opacity="0.9"/>
+        </svg>
+        <div class="wall-label">Lv 10 · 石砌城墙</div>
+      </div>
+      <div class="label">厚、灰色、规则垛口</div>
+    </div>
+
+    <div class="card">
+      <div class="map-mock">
+        <div class="bg"></div>
+        <div class="village-dot" style="top:45%;left:48%"></div>
+        <div class="village-dot" style="top:31%;left:40%"></div>
+        <div class="village-dot" style="top:58%;left:26%"></div>
+        <div class="village-dot" style="top:26%;left:60%"></div>
+        <div class="village-dot" style="top:64%;left:60%"></div>
+        <svg viewBox="0 0 100 56.25" preserveAspectRatio="none">
+          <ellipse cx="50" cy="28.125" rx="46" ry="23.5" fill="none" stroke="#1c1917" stroke-width="7"/>
+          <ellipse cx="50" cy="28.125" rx="46" ry="23.5" fill="none" stroke="#57534e" stroke-width="1.75" opacity="0.7"/>
+          <ellipse cx="50" cy="28.125" rx="46" ry="23.5" fill="none" stroke="#0c0a09" stroke-width="8.2" stroke-dasharray="2.1 2.1" opacity="0.9"/>
+          <g transform="translate(50,4.625)"><rect x="-2.2" y="-2.2" width="4.4" height="4.4" fill="#0c0a09" stroke="#fbbf24" stroke-width="0.3"/><circle cx="0" cy="0" r="0.6" fill="#fbbf24"/></g>
+          <g transform="translate(96,28.125)"><rect x="-2.2" y="-2.2" width="4.4" height="4.4" fill="#0c0a09" stroke="#fbbf24" stroke-width="0.3"/><circle cx="0" cy="0" r="0.6" fill="#fbbf24"/></g>
+          <g transform="translate(50,51.625)"><rect x="-2.2" y="-2.2" width="4.4" height="4.4" fill="#0c0a09" stroke="#fbbf24" stroke-width="0.3"/><circle cx="0" cy="0" r="0.6" fill="#fbbf24"/></g>
+          <g transform="translate(4,28.125)"><rect x="-2.2" y="-2.2" width="4.4" height="4.4" fill="#0c0a09" stroke="#fbbf24" stroke-width="0.3"/><circle cx="0" cy="0" r="0.6" fill="#fbbf24"/></g>
+          <ellipse cx="50" cy="28.125" rx="46" ry="23.5" fill="none" stroke="#fbbf24" stroke-width="0.3" stroke-dasharray="0.5 3" opacity="0.6"/>
+        </svg>
+        <div class="wall-label">Lv 20 · 铜墙铁壁</div>
+      </div>
+      <div class="label">最厚、深黑、敌楼+铜钉+金光</div>
+    </div>
+  </div>
+
+  <p style="margin-top:16px;color:#a8a29e;font-size:12px;max-width:700px;line-height:1.7">
+    城墙环是一条沿着地图边缘的 <b>SVG 椭圆环</b>，不是圆形图标。随等级进化：<br/>
+    <b>Lv 1–5 夯土</b>（棕、薄）→ <b>Lv 6–10 石砌</b>（灰、厚、垛口）→ <b>Lv 11–15 包石</b>（深灰、四角敌楼）→ <b>Lv 16–20 铜墙铁壁</b>（深黑、敌楼铜钉、金光晕）。<br/>
+    墙体厚度、垛口数量、敌楼、铜钉都随等级增长。点击城墙环可打开详情面板。
+  </p>
+</body>
+</html>

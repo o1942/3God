@@ -3,9 +3,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { IncomingAttack, ResourceCost, UnitType, VillageState } from '../game/types';
 import { toast } from '../store/toast';
 
-// 配置从 Vite 环境变量读取（构建时注入）
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// Supabase 配置（anon key 设计为公开，由 RLS 保护安全）
+// 优先读 env，fallback 到硬编码值（防止 .env 丢失导致线上无存档）
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || 'https://rbhbsnmruztvqqkkvkki.supabase.co';
+const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || 'sb_publishable_ocjjxdXuNnk-Ed-ZOy3ZLg_ZOb8eM9W';
 
 export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 

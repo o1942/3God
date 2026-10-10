@@ -25,6 +25,7 @@ const SeasonPanel = lazy(() => import('./components/SeasonPanel').then(m => ({ d
 const EventLogPanel = lazy(() => import('./components/EventLogPanel').then(m => ({ default: m.EventLogPanel })));
 const MarketPanel = lazy(() => import('./components/MarketPanel').then(m => ({ default: m.MarketPanel })));
 const AlliancePanel = lazy(() => import('./components/AlliancePanel').then(m => ({ default: m.AlliancePanel })));
+const SettingsPanel = lazy(() => import('./components/SettingsPanel').then(m => ({ default: m.SettingsPanel })));
 import { SEASON_MILESTONES } from './game/season';
 import { QUESTS } from './game/quests';
 import { TRIBE_CONFIGS, TRIBE_ORDER } from './game/tribes';
@@ -58,6 +59,7 @@ function App() {
   const [showEventLog, setShowEventLog] = useState(false);
   const [showMarket, setShowMarket] = useState(false);
   const [showAlliance, setShowAlliance] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('fields');
   // 部落选择：登录后如未选部落则需选择
   const [showTribeSelect, setShowTribeSelect] = useState(false);
@@ -149,6 +151,22 @@ function App() {
   const recentWin = [...battleReports, ...pvpReports].filter((r: any) => r.win).length;
 
   const totalUnits = Object.values(units).reduce((s, n) => s + (n || 0), 0);
+
+  // 设置面板：重置存档 / 登出
+  const handleReset = () => {
+    if (confirm('重置存档？所有进度将丢失，需重新选择部落')) {
+      localStorage.removeItem(`${TRIBE_SELECTED_KEY}-${playerName}`);
+      reset();
+      setShowSettings(false);
+      setShowTribeSelect(true);
+    }
+  };
+  const handleLogout = () => {
+    if (confirm('确定登出？下次可从此玩家名重新进入')) {
+      logout();
+      setShowSettings(false);
+    }
+  };
 
   // 未登录：显示登录界面
   if (!isLoggedIn) {
@@ -323,23 +341,7 @@ function App() {
           onClick={() => setShowSeason(true)}
         />
         <NavBtn icon="✨" label="商城" onClick={() => setShowShop(true)} />
-        <NavBtn icon="⚙️" label="设置" onClick={() => {
-          const playerName = useGame.getState().village.playerName;
-          const choice = prompt(
-            `玩家：${playerName}\n\n操作选项：\n1. 重置存档（重新开始）\n2. 切换账号（登出）\n3. 取消\n\n输入数字选择：`,
-          );
-          if (choice === '1') {
-            if (confirm('重置存档？所有进度将丢失，需重新选择部落')) {
-              localStorage.removeItem(`${TRIBE_SELECTED_KEY}-${playerName}`);
-              reset();
-              setShowTribeSelect(true);
-            }
-          } else if (choice === '2') {
-            if (confirm('确定登出？下次可从此玩家名重新进入')) {
-              logout();
-            }
-          }
-        }} />
+        <NavBtn icon="⚙️" label="设置" onClick={() => setShowSettings(true)} />
       </nav>
 
       {/* 新手引导 */}
@@ -366,6 +368,7 @@ function App() {
         {showEventLog && <EventLogPanel onClose={() => setShowEventLog(false)} />}
         {showMarket && <MarketPanel onClose={() => setShowMarket(false)} />}
         {showAlliance && <AlliancePanel onClose={() => setShowAlliance(false)} />}
+        {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} onReset={handleReset} onLogout={handleLogout} />}
       </Suspense>
 
       {/* 部落选择浮层 */}

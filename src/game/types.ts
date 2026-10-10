@@ -225,7 +225,7 @@ export type CampState = {
   raiders: number;      // 当前妖兽数
   maxRaiders: number;   // 上限
   reward: ResourceCost; // 攻占奖励
-  position: { x: number; y: number }; // 0-100 的相对坐标
+  position: { x: number; y: number }; // 大地图网格坐标（0..9 整数，决定行军时长）
   clearedAt?: number;   // 被清空时间戳（用于自动刷新）
   // 占领与驻守
   occupied?: boolean;              // 是否已被我方占领
@@ -264,7 +264,7 @@ export type NpcVillage = {
   id: string;
   name: string;
   tribe: TribeType;
-  position: { x: number; y: number };
+  position: { x: number; y: number }; // 大地图网格坐标（0..9 整数）
   // 守军兵力（被攻击后会损耗，随时间恢复）
   units: Partial<Record<UnitType, number>>;
   // 守军基础兵力上限（恢复目标）

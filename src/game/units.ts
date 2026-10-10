@@ -231,15 +231,16 @@ export const CAMP_TEMPLATES: CampTemplate[] = [
   { name: '蛮荒妖窟', raiderType: 'demon', difficulty: 'medium', maxRaiders: 30, reward: { wood: 700, clay: 700, iron: 700, crop: 700 }, garrisonYield: { wood: 100, clay: 100, iron: 100, crop: 100 } },
 ];
 
+// 据点网格坐标（0..9），距我方部落远近决定行军时长
 export const CAMP_POSITIONS: Record<string, { x: number; y: number }> = {
-  camp_1: { x: 78, y: 18 },
-  camp_2: { x: 88, y: 40 },
-  camp_3: { x: 82, y: 62 },
-  camp_4: { x: 70, y: 80 },
-  camp_5: { x: 55, y: 90 },
-  camp_6: { x: 35, y: 30 },
-  camp_7: { x: 50, y: 12 },
-  camp_8: { x: 15, y: 45 },
+  camp_1: { x: 6, y: 4 },   // 妖兽巢穴：近（新手）
+  camp_2: { x: 7, y: 6 },   // 妖狼谷
+  camp_3: { x: 3, y: 3 },   // 山精洞窟
+  camp_4: { x: 8, y: 8 },   // 巨蟒沼泽
+  camp_5: { x: 9, y: 9 },   // 妖王殿：最远
+  camp_6: { x: 2, y: 5 },   // 幽狼荒原
+  camp_7: { x: 5, y: 1 },   // 蛇窟深穴
+  camp_8: { x: 1, y: 8 },   // 蛮荒妖窟
 };
 
 // 资源矿点：占领后持续产出单一资源
@@ -251,10 +252,10 @@ export const RESOURCE_NODE_TEMPLATES = [
 ];
 
 export const RESOURCE_NODE_POSITIONS: Record<string, { x: number; y: number }> = {
-  res_wood: { x: 92, y: 72 },
-  res_clay: { x: 25, y: 15 },
-  res_iron: { x: 65, y: 35 },
-  res_crop: { x: 40, y: 65 },
+  res_wood: { x: 8, y: 5 },
+  res_clay: { x: 1, y: 2 },
+  res_iron: { x: 7, y: 4 },
+  res_crop: { x: 4, y: 8 },
 };
 
 // 世界Boss：洪荒巨兽
@@ -267,7 +268,7 @@ export const WORLD_BOSS_CONFIG = {
   garrisonYield: { wood: 500, clay: 500, iron: 500, crop: 500 },
   respawnMs: 30 * 60 * 1000,   // 30 分钟刷新
   activeDurationMs: 15 * 60 * 1000,  // 活跃 15 分钟
-  position: { x: 50, y: 50 },
+  position: { x: 5, y: 0 },
 };
 
 // 秘境：限时高难本
@@ -279,19 +280,22 @@ export const REALM_CONFIG = {
   garrisonYield: { wood: 400, clay: 400, iron: 400, crop: 400 },
   spawnMs: 2 * 60 * 60 * 1000,    // 2 小时刷新一次
   activeDurationMs: 30 * 60 * 1000, // 活跃 30 分钟
-  position: { x: 88, y: 88 },
+  position: { x: 0, y: 9 },
 };
 
-// 我方部落位置（地图中心偏左下）
-export const VILLAGE_POSITION = { x: 20, y: 80 };
+// 大地图尺寸：10×10 网格，坐标为整数 0..9（列 x 从左到右，行 y 从上到下）
+export const GRID_SIZE = 10;
 
-// 根据据点与村庄的距离计算行军时间（秒）
-// 距离每单位约 0.5 秒，最小 3 秒
+// 我方部落位置（地图中枢）
+export const VILLAGE_POSITION = { x: 5, y: 5 };
+
+// 根据据点与村庄的网格坐标距离计算行军时间（秒）
+// 单格距离约 7 秒，基础 3 秒；最远处（约 6.4 格）≈ 48 秒
 export function calcMarchTime(campPos: { x: number; y: number }): number {
   const dx = campPos.x - VILLAGE_POSITION.x;
   const dy = campPos.y - VILLAGE_POSITION.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
-  return Math.max(3, Math.round(dist * 0.5));
+  return Math.max(6, Math.round(3 + dist * 7));
 }
 
 // ============ 阵型 ============

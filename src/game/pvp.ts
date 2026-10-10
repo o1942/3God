@@ -41,7 +41,7 @@ export const NPC_TEMPLATES: NpcTemplate[] = [
   {
     name: '有巢氏聚落',
     tribe: 'huang',
-    position: { x: 12, y: 28 },
+    position: { x: 4, y: 4 },
     baseUnits: { warrior: 12, archer: 4 },
     wallLevel: 1,
     resourceCap: { wood: 2000, clay: 2000, iron: 1500, crop: 2000 },
@@ -50,7 +50,7 @@ export const NPC_TEMPLATES: NpcTemplate[] = [
   {
     name: '风后营寨',
     tribe: 'huang',
-    position: { x: 38, y: 18 },
+    position: { x: 6, y: 3 },
     baseUnits: { warrior: 18, archer: 8, cavalry: 2 },
     wallLevel: 2,
     resourceCap: { wood: 3500, clay: 3500, iron: 3000, crop: 3500 },
@@ -59,7 +59,7 @@ export const NPC_TEMPLATES: NpcTemplate[] = [
   {
     name: '祝融火部',
     tribe: 'yan',
-    position: { x: 8, y: 55 },
+    position: { x: 2, y: 6 },
     baseUnits: { warrior: 20, guard: 6 },
     wallLevel: 3,
     resourceCap: { wood: 4000, clay: 4000, iron: 3500, crop: 5000 },
@@ -68,7 +68,7 @@ export const NPC_TEMPLATES: NpcTemplate[] = [
   {
     name: '刑天战部',
     tribe: 'chi',
-    position: { x: 92, y: 75 },
+    position: { x: 9, y: 7 },
     baseUnits: { warrior: 25, cavalry: 8, guard: 4 },
     wallLevel: 3,
     resourceCap: { wood: 5000, clay: 5000, iron: 5000, crop: 5000 },
@@ -77,7 +77,7 @@ export const NPC_TEMPLATES: NpcTemplate[] = [
   {
     name: '共工水寨',
     tribe: 'yan',
-    position: { x: 60, y: 8 },
+    position: { x: 1, y: 1 },
     baseUnits: { warrior: 30, archer: 12, cavalry: 6, guard: 5 },
     wallLevel: 4,
     resourceCap: { wood: 8000, clay: 8000, iron: 7000, crop: 9000 },
@@ -117,7 +117,7 @@ export function calcNpcMarchTime(npcPos: { x: number; y: number }): number {
   const dx = npcPos.x - VILLAGE_POSITION.x;
   const dy = npcPos.y - VILLAGE_POSITION.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
-  return Math.max(5, Math.round(dist * 0.5));
+  return Math.max(8, Math.round(3 + dist * 7));
 }
 
 // PVP 攻击结算：玩家 → NPC

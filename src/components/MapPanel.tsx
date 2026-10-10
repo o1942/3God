@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { FormationType, TribeType, UnitType } from '../game/types';
-import { CAMP_TEMPLATES, FORMATIONS, FORMATION_ORDER, UNIT_ORDER, calcMarchTime, getRaiderConfig, getUnitDisplay, predictBattle, predictPvPBattle } from '../game/units';
+import type { CampState, FormationType, NpcVillage, TribeType, UnitType } from '../game/types';
+import { CAMP_TEMPLATES, FORMATIONS, FORMATION_ORDER, GRID_SIZE, UNIT_ORDER, VILLAGE_POSITION, calcMarchTime, getRaiderConfig, getUnitDisplay, predictBattle, predictPvPBattle } from '../game/units';
 import { BUILDING_CONFIGS } from '../game/config';
 import { tribeAttackMultiplier, useGame } from '../store/gameStore';
 import { isShielded, shieldRemainingMs } from '../game/shield';
@@ -33,6 +33,19 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
   const selectedCamp = selectedCampId ? village.camps[selectedCampId] : null;
   const selectedNpc = selectedNpcId && village.players ? village.players[selectedNpcId] : null;
   const marchQueue = village.marchQueue;
+
+  // 构建「网格坐标 → 实体」查找表，用于 10×10 大地图渲染
+  // 我方部落最后写入，保证始终可见
+  const tileMap: Record<string, TileEntity> = {};
+  npcs.forEach((n) => {
+    tileMap[`${n.position.x},${n.position.y}`] = { type: 'npc', npc: n };
+  });
+  camps.forEach((c) => {
+    // 世界Boss/秘境未激活时不占格
+    if ((c.kind === 'worldBoss' || c.kind === 'realm') && !c.bossActive) return;
+    tileMap[`${c.position.x},${c.position.y}`] = { type: 'camp', camp: c };
+  });
+  tileMap[`${VILLAGE_POSITION.x},${VILLAGE_POSITION.y}`] = { type: 'village' };
 
   const atkMult = FORMATIONS[formation].atkMod * tribeAttackMultiplier(village);
   const defMult = FORMATIONS[formation].defMod;
@@ -98,57 +111,89 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {/* 简化地图 */}
-          <div className="relative bg-gradient-to-br from-amber-50 to-emerald-50 border border-border rounded-lg p-3 mb-1 h-52 overflow-hidden">
-            <div className="absolute left-[20%] bottom-[20%] -translate-x-1/2 -translate-y-1/2 bg-bg-card border-2 border-pop rounded-lg px-2 py-1 text-xs">
-              <div className="text-base text-center">⛰️</div>
-              <div className="text-text-primary font-semibold">我方部落</div>
+          {/* 洪荒大地图 10×10 网格 */}
+          <div className="border border-border rounded-lg p-2 bg-bg-secondary">
+            <div className="flex items-center justify-between mb-1 px-1">
+              <h3 className="text-sm font-semibold text-text-secondary">🗺️ 洪荒大地图 · {GRID_SIZE}×{GRID_SIZE}</h3>
+              <span className="text-[10px] text-text-muted">我方 📍({VILLAGE_POSITION.x},{VILLAGE_POSITION.y})</span>
             </div>
-            {/* 妖兽据点 */}
-            {camps.map((c) => {
-              const isSelected = selectedCampId === c.id;
-              const cleared = c.raiders === 0;
-              const rc = getRaiderConfig(c.raiderType);
-              // 世界Boss/秘境：未激活时不显示
-              if ((c.kind === 'worldBoss' || c.kind === 'realm') && !c.bossActive) return null;
-              const emoji = c.kind === 'worldBoss' ? '🐉' : c.kind === 'realm' ? '🌌' : c.kind === 'resource' ? '💎' : c.occupied ? '🏴' : cleared ? '🏳️' : rc.emoji;
-              const borderClass = c.kind === 'worldBoss' ? 'border-red-600 animate-pulse' : c.kind === 'realm' ? 'border-purple-500 animate-pulse' : c.kind === 'resource' ? 'border-amber-500' : 'border-border';
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => { setSelectedCampId(c.id); setSelectedNpcId(null); setDeployed({}); }}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 border-2 rounded px-1.5 py-0.5 text-xs transition
-                    ${isSelected ? 'border-red-500 ring-2 ring-red-300' : borderClass} ${c.occupied ? 'ring-2 ring-emerald-400' : ''}`}
-                  style={{ left: `${c.position.x}%`, top: `${c.position.y}%` }}
-                >
-                  <div className="text-base">{emoji}</div>
-                  <div className="text-text-primary font-semibold whitespace-nowrap">{c.name}</div>
-                  {c.kind === 'worldBoss' && c.bossActive && c.bossMaxHp && (
-                    <div className="w-16 bg-red-200 rounded-full h-1 mt-0.5">
-                      <div className="bg-red-600 h-full rounded-full" style={{ width: `${Math.max(0, ((c.bossHp||0) / c.bossMaxHp) * 100)}%` }} />
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-            {/* NPC 敌方部落 */}
-            {npcs.map((n) => {
-              const isSelected = selectedNpcId === n.id;
-              const defeated = n.defeatedAt && Date.now() - n.defeatedAt < NPC_REVIVE_MS;
-              const t = TRIBE_CONFIGS[n.tribe];
-              return (
-                <button
-                  key={n.id}
-                  onClick={() => { setSelectedNpcId(n.id); setSelectedCampId(null); setDeployed({}); }}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 border-2 rounded px-1.5 py-0.5 text-xs transition
-                    ${isSelected ? 'border-red-500 ring-2 ring-red-300' : 'border-border'}`}
-                  style={{ left: `${n.position.x}%`, top: `${n.position.y}%` }}
-                >
-                  <div className="text-base">{defeated ? '🏚️' : t.emoji}</div>
-                  <div className="text-text-primary font-semibold whitespace-nowrap">{n.name}</div>
-                </button>
-              );
-            })}
+            {/* 图例 */}
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-text-muted mb-2 px-1">
+              <span>🏛️ 我方</span>
+              <span>👹 妖兽据点</span>
+              <span>💎 资源矿点</span>
+              <span>🐉 世界Boss</span>
+              <span>🌌 秘境</span>
+              <span>🏛️ 敌部</span>
+            </div>
+            <div
+              className="grid gap-[2px] aspect-square w-full max-w-[460px] mx-auto bg-black/10 rounded overflow-hidden p-[2px]"
+              style={{ gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`, gridTemplateRows: `repeat(${GRID_SIZE}, 1fr)` }}
+            >
+              {Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, i) => {
+                const x = i % GRID_SIZE;
+                const y = Math.floor(i / GRID_SIZE);
+                const k = `${x},${y}`;
+                const ent = tileMap[k];
+                return (
+                  <div key={k} className={`relative rounded-[2px] ${terrainClass(x, y)}`} title={`坐标 (${x}, ${y})`}>
+                    {ent?.type === 'village' && (
+                      <div className="absolute inset-0 flex items-center justify-center ring-1 ring-pop/60 rounded-[2px]">
+                        <span className="text-[13px] sm:text-base leading-none">🏛️</span>
+                      </div>
+                    )}
+                    {ent?.type === 'camp' && (() => {
+                      const c = ent.camp;
+                      const rc = getRaiderConfig(c.raiderType);
+                      const isBoss = c.kind === 'worldBoss' || c.kind === 'realm';
+                      const isResource = c.kind === 'resource';
+                      const cleared = c.raiders === 0;
+                      const emoji = c.kind === 'worldBoss' ? '🐉' : c.kind === 'realm' ? '🌌' : isResource ? '💎' : cleared ? '🏳️' : rc.emoji;
+                      const selected = selectedCampId === c.id;
+                      const border = selected
+                        ? 'border-red-500 ring-2 ring-red-300'
+                        : c.kind === 'worldBoss'
+                          ? 'border-red-500/70'
+                          : c.kind === 'realm'
+                            ? 'border-purple-500/70'
+                            : isResource
+                              ? 'border-amber-500/70'
+                              : 'border-black/20';
+                      return (
+                        <button
+                          onClick={() => { setSelectedCampId(c.id); setSelectedNpcId(null); setDeployed({}); }}
+                          className={`absolute inset-0 flex items-center justify-center rounded-[2px] border ${border} ${isBoss ? 'animate-pulse' : ''}`}
+                        >
+                          <span className="text-[13px] sm:text-base leading-none">{emoji}</span>
+                          {isBoss && c.bossMaxHp ? (
+                            <span className="absolute bottom-[1px] left-[12%] right-[12%] h-[3px] bg-red-200 rounded-full overflow-hidden">
+                              <span className="block h-full bg-red-600" style={{ width: `${Math.max(0, ((c.bossHp || 0) / c.bossMaxHp) * 100)}%` }} />
+                            </span>
+                          ) : null}
+                          {c.occupied && <span className="absolute top-[1px] right-[1px] w-1.5 h-1.5 bg-emerald-500 rounded-full" />}
+                        </button>
+                      );
+                    })()}
+                    {ent?.type === 'npc' && (() => {
+                      const n = ent.npc;
+                      const defeated = n.defeatedAt && Date.now() - n.defeatedAt < NPC_REVIVE_MS;
+                      const selected = selectedNpcId === n.id;
+                      return (
+                        <button
+                          onClick={() => { setSelectedNpcId(n.id); setSelectedCampId(null); setDeployed({}); }}
+                          className={`absolute inset-0 flex items-center justify-center rounded-[2px] border ${selected ? 'border-red-500 ring-2 ring-red-300' : 'border-red-400/50'}`}
+                        >
+                          <span className="text-[13px] sm:text-base leading-none">{defeated ? '🏚️' : TRIBE_CONFIGS[n.tribe].emoji}</span>
+                        </button>
+                      );
+                    })()}
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-text-muted text-center mt-2">
+              点击格子查看详情 · 离我方部落越远，出征行军时间越长
+            </p>
           </div>
 
           {/* 选中据点详情 */}
@@ -175,6 +220,8 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
                         </span>
                         {selectedCamp.occupied && <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">已占领</span>}
                         {selectedCamp.scouted && <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">已侦查</span>}
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-bg-primary text-text-muted">📍({selectedCamp.position.x},{selectedCamp.position.y})</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-bg-primary text-amber-700">🚶 {calcMarchTime(selectedCamp.position)}s</span>
                       </div>
                       {/* 世界Boss 血条 */}
                       {isBoss && selectedCamp.bossActive && selectedCamp.bossMaxHp ? (
@@ -417,6 +464,8 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
                         <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">{t.name}</span>
                         <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">🧱 城墙 Lv{selectedNpc.wallLevel}</span>
                         {isNpcDefeated && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">废墟</span>}
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-bg-primary text-text-muted">📍({selectedNpc.position.x},{selectedNpc.position.y})</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-bg-primary text-amber-700">🚶 {calcMarchTime(selectedNpc.position)}s</span>
                       </div>
                       {isNpcDefeated ? (
                         <p className="text-xs text-text-muted mt-1">村庄已被摧毁，{Math.ceil((NPC_REVIVE_MS - (Date.now() - (selectedNpc.defeatedAt || 0))) / 60000)} 分钟后重建</p>
@@ -571,6 +620,7 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
                         <h3 className="font-semibold text-text-primary">{c.name}</h3>
                         {isBoss && <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">Boss</span>}
                         {isResource && <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">矿点</span>}
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-bg-primary text-text-muted">📍({c.position.x},{c.position.y})·🚶{calcMarchTime(c.position)}s</span>
                         <span className={`text-xs px-1.5 py-0.5 rounded
                           ${c.difficulty === 'small' ? 'bg-green-100 text-green-700' : c.difficulty === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
                           {c.difficulty === 'small' ? '低' : c.difficulty === 'medium' ? '中' : '高'}
@@ -640,6 +690,7 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
                         <h3 className="font-semibold text-text-primary">{n.name}</h3>
                         <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">敌方</span>
                         <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">🧱 Lv{n.wallLevel}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-bg-primary text-text-muted">📍({n.position.x},{n.position.y})·🚶{calcMarchTime(n.position)}s</span>
                         {defeated && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">废墟</span>}
                       </div>
                       <p className="text-xs text-text-muted mt-0.5">
@@ -665,6 +716,27 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
 
 function totalArmy(units: Record<string, number>): number {
   return Object.values(units).reduce((s, n) => s + (n || 0), 0);
+}
+
+// 大地图格子上的实体类型
+type TileEntity =
+  | { type: 'village' }
+  | { type: 'camp'; camp: CampState }
+  | { type: 'npc'; npc: NpcVillage };
+
+// 确定性伪随机（同一坐标恒定），用于给格子铺地形底色
+function hash01(x: number, y: number): number {
+  const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+function terrainClass(x: number, y: number): string {
+  const h = hash01(x + 1, y + 1);
+  if (h < 0.1) return 'bg-sky-200';       // 水域
+  if (h < 0.42) return 'bg-emerald-200';  // 林地
+  if (h < 0.55) return 'bg-stone-300';    // 山岩
+  if (h < 0.72) return 'bg-amber-100';    // 沙丘
+  return 'bg-lime-100';                    // 平原
 }
 
 // 克制循环图的兵种节点

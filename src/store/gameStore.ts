@@ -3,7 +3,7 @@ import type { BattleReport, BuildTask, BuildTarget, FieldType, BuildingType, For
 import { BUILDING_CONFIGS, FIELD_CONFIGS } from '../game/config';
 import { SPEED_MULTIPLIER, createInitialVillage } from '../game/initialState';
 import { QUESTS, buildQuestContext } from '../game/quests';
-import { UNIT_CONFIGS, UNIT_ORDER, aggregateArmy, aggregateRaiders, calcMarchTime, computeUpkeep, FORMATIONS, getUnitDisplay, simulateBattle, CAMP_TEMPLATES, WORLD_BOSS_CONFIG, REALM_CONFIG, RAIDER_CONFIGS } from '../game/units';
+import { UNIT_CONFIGS, UNIT_ORDER, aggregateArmy, aggregateRaiders, calcMarchTime, computeUpkeep, FORMATIONS, getUnitDisplay, simulateBattle, CAMP_TEMPLATES, WORLD_BOSS_CONFIG, REALM_CONFIG, RAIDER_CONFIGS, GRID_SIZE } from '../game/units';
 import { OFFLINE_CAP_MS, OFFLINE_THRESHOLD_MS, SEASON_MILESTONES_BY_POINTS, SEASON_POINT_RULES, checkSeasonRoll } from '../game/season';
 import { TRIBE_BONUS } from '../game/tribes';
 import { ACCEL_COST_JADE, ACCEL_RESET_INTERVAL_MS, DAILY_ACCEL_LIMIT, getCosmetic } from '../game/cosmetics';
@@ -11,7 +11,7 @@ import { TECH_CONFIGS, getAttackTechMultiplier, getBuildSpeedMultiplier, getCapa
 import { playSound } from '../game/sound';
 import { requestNotificationPermission, pushNotification } from '../game/notifications';
 import { canActivateShield, createActiveShield, isShielded } from '../game/shield';
-import { COUNTER_ATTACK_CHANCE, NPC_REVIVE_MS, buildCounterAttackForce, calcNpcMarchTime, regenNpc, resolvePvpAttack } from '../game/pvp';
+import { COUNTER_ATTACK_CHANCE, NPC_REVIVE_MS, NPC_TEMPLATES, buildCounterAttackForce, calcNpcMarchTime, regenNpc, resolvePvpAttack } from '../game/pvp';
 import { toast } from './toast';
 import {
   isSupabaseConfigured,
@@ -2118,6 +2118,27 @@ function loadVillage(playerName?: string): VillageState {
         if (!migratedCamps[id]) migratedCamps[id] = c;
       }
       parsed.camps = migratedCamps;
+      // 坐标迁移：旧存档为 0-100 百分比坐标，统一换算为 10×10 网格整数坐标
+      const G = GRID_SIZE - 1;
+      const toGrid = (p?: { x: number; y: number }) => {
+        if (!p) return { x: 5, y: 5 };
+        if (p.x <= G && p.y <= G) return p; // 已是网格坐标
+        return {
+          x: Math.max(0, Math.min(G, Math.round((p.x / 100) * G))),
+          y: Math.max(0, Math.min(G, Math.round((p.y / 100) * G))),
+        };
+      };
+      // 据点：优先吸附到配置的标准坐标（避免旧坐标换算后重叠）
+      for (const [id, c] of Object.entries(migratedCamps)) {
+        const canonical = freshCamps[id]?.position;
+        c.position = canonical ? { ...canonical } : toGrid(c.position);
+      }
+      // 敌方部落：按模板吸附坐标
+      for (const [id, npc] of Object.entries(parsed.players || {})) {
+        const idx = parseInt(id.replace('npc_', ''), 10) - 1;
+        const canonical = NPC_TEMPLATES[idx]?.position;
+        npc.position = canonical ? { ...canonical } : toGrid(npc.position);
+      }
       parsed.marchQueue = parsed.marchQueue || [];
       parsed.techLevels = parsed.techLevels ?? {};
       parsed.researchQueue = parsed.researchQueue ?? [];

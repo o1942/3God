@@ -464,11 +464,14 @@ function checkQuests(set: (fn: (s: GameStore) => Partial<GameStore>) => void, vi
     v.jade += totalJade;
     // 任务完成加赛季积分
     v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.questComplete * newlyCompleted.length };
+    // 已完成任务随存档同步（跨设备一致，避免换设备重复发放奖励）
+    const allCompleted = [...completed, ...newlyCompleted];
+    v.completedQuests = allCompleted;
     saveVillage(v);
-    saveCompletedQuests([...completed, ...newlyCompleted], v.playerName || undefined);
+    saveCompletedQuests(allCompleted, v.playerName || undefined);
     set(() => ({
       village: v,
-      completedQuests: [...completed, ...newlyCompleted],
+      completedQuests: allCompleted,
     }));
   }
 }
@@ -661,7 +664,9 @@ export const useGame = create<GameStore>((set, get) => ({
       // 先从 localStorage 同步加载（快速启动）
       const localV = loadVillage(name);
       localV.playerName = name;
-      const quests = loadCompletedQuests(name);
+      // 已完成任务：合并 localStorage 与存档内记录（存档内为跨设备权威来源）
+      const quests = Array.from(new Set([...loadCompletedQuests(name), ...(localV.completedQuests || [])]));
+      localV.completedQuests = quests;
       const savedBattleReports = loadBattleReports(name);
       const savedPvpReports = loadPvpReports(name);
       set({
@@ -687,16 +692,23 @@ export const useGame = create<GameStore>((set, get) => ({
           const localTs = cur.lastTick || 0;
           // 无论是否整体采用远端，来袭战报都要合并（服务端可能已写入）
           const merged = mergeIncoming(cur.incomingAttacks, remote.incomingAttacks);
+          // 已完成任务：并集合并（云端与本地都算已完成，避免任一设备重复发奖）
+          const mergedQuests = Array.from(new Set([
+            ...(cur.completedQuests || []),
+            ...(remote.completedQuests || []),
+            ...get().completedQuests,
+          ]));
           if (!hadLocalSave || remoteTs > localTs) {
             remote.playerName = name;
             remote.lastTick = Date.now();
             remote.incomingAttacks = merged;
-            set({ village: remote });
+            remote.completedQuests = mergedQuests;
+            set({ village: remote, completedQuests: mergedQuests });
             // 只写本地，避免立即回环上传
             saveVillageLocal(remote);
           } else {
-            const v = { ...cur, incomingAttacks: merged };
-            set({ village: v });
+            const v = { ...cur, incomingAttacks: merged, completedQuests: mergedQuests };
+            set({ village: v, completedQuests: mergedQuests });
             saveVillageLocal(v);
           }
           notifyIncoming(merged);
@@ -708,10 +720,17 @@ export const useGame = create<GameStore>((set, get) => ({
           const cur = get().village;
           // 远端推送代表另一端刚写入的最新状态，直接采用；来袭战报按并集合并
           const merged = mergeIncoming(cur.incomingAttacks, remoteV.incomingAttacks);
+          // 已完成任务并集合并，避免另一端重复触发任务奖励
+          const mergedQuests = Array.from(new Set([
+            ...(cur.completedQuests || []),
+            ...(remoteV.completedQuests || []),
+            ...get().completedQuests,
+          ]));
           remoteV.playerName = name;
           remoteV.lastTick = Date.now();
           remoteV.incomingAttacks = merged;
-          set({ village: remoteV });
+          remoteV.completedQuests = mergedQuests;
+          set({ village: remoteV, completedQuests: mergedQuests });
           // 只写本地，不再上传（避免回环）
           saveVillageLocal(remoteV);
           notifyIncoming(merged);
@@ -2104,6 +2123,7 @@ function loadVillage(playerName?: string): VillageState {
       parsed.researchQueue = parsed.researchQueue ?? [];
       parsed.nextInvasionAt = parsed.nextInvasionAt ?? (Date.now() + 5 * 60 * 1000);
       parsed.jade = parsed.jade ?? 0;
+      parsed.completedQuests = parsed.completedQuests ?? [];
       parsed.accelUsedToday = parsed.accelUsedToday ?? 0;
       parsed.accelResetAt = parsed.accelResetAt ?? (Date.now() + 24 * 60 * 60 * 1000);
       parsed.cosmetics = parsed.cosmetics ?? ['banner_default', 'theme_default', 'frame_default'];

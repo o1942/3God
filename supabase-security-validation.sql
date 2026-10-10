@@ -67,8 +67,8 @@ declare
   v_max_res_rate numeric := 20000;       -- 单种资源每小时最多增长（Lv20 满田约 8000，留 2.5 倍余量）
   v_max_units_rate numeric := 6000;      -- 总兵力每小时最多增长（军帐 Lv20 满负荷约 3000，留 2 倍余量）
   -- 单次存档增量上限
-  v_max_jade_delta numeric := 200;       -- 纹玉单次最多增加
-  v_max_points_delta numeric := 200;     -- 赛季积分单次最多增加
+  v_max_jade_delta numeric := 600;       -- 纹玉单次最多增加（8个任务全完成=180，赛季里程碑最高200，留足余量）
+  v_max_points_delta numeric := 800;     -- 赛季积分单次最多增加（8个任务全完成=400，含战斗胜利余量）
   v_max_unit_delta numeric := 1000;      -- 单种兵力单次最多增加（兜底，离线训练队列可能一次性完成很多）
   -- 最小容忍增量：即使时间差很短，也允许最多增长这么多（避免多端不同步/时间计算误差误伤）
   v_min_res_tolerance numeric := 5000;    -- 单种资源最小容忍增量（有天花板 16000 兜底，可放宽）

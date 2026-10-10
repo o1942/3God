@@ -185,6 +185,8 @@ export type VillageState = {
   shield: ShieldState | null;
   lastTick: number; // 上次资源结算的 ms timestamp
   lastSeen: number; // 上次玩家活跃的 ms timestamp（用于离线收益结算）
+  // 已完成任务 id 列表（随存档同步，避免换设备后重复触发任务奖励）
+  completedQuests?: string[];
 };
 
 // 离线收益报告

@@ -210,12 +210,16 @@ export type TrainTask = {
 // 妖兽类型
 export type RaiderType = 'demon' | 'mountainSpirit' | 'wolf' | 'serpent' | 'demonKing';
 
+// 据点类型：普通据点 / 资源矿点 / 世界Boss / 秘境
+export type CampKind = 'normal' | 'resource' | 'worldBoss' | 'realm';
+
 // 野怪据点
 export type CampState = {
   id: string;
   name: string;
   raiderType: RaiderType;
   difficulty: 'small' | 'medium' | 'large';
+  kind: CampKind;           // 据点类型
   raiders: number;      // 当前妖兽数
   maxRaiders: number;   // 上限
   reward: ResourceCost; // 攻占奖励
@@ -227,6 +231,17 @@ export type CampState = {
   // 侦查
   scouted?: boolean;               // 是否已侦查
   scoutedAt?: number;              // 侦查时间
+  // 世界Boss 专用
+  bossHp?: number;          // 当前血量（世界Boss专用，可多次攻击）
+  bossMaxHp?: number;       // 最大血量
+  bossRespawnAt?: number;   // 下次刷新时间
+  bossActive?: boolean;     // 是否当前活跃
+  // 秘境专用
+  realmExpiresAt?: number;  // 秘境消失时间
+  // 资源矿点专用
+  resourceType?: 'wood' | 'clay' | 'iron' | 'crop'; // 专属产出资源
+  // 清空次数（用于难度递增）
+  clearCount?: number;
 };
 
 // 行军任务（出征/撤回）

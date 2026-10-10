@@ -41,7 +41,8 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
   const rallyLv = village.buildings.rallyPoint || 0;
   const deployLimit = rallyLv > 0 ? BUILDING_CONFIGS.rallyPoint.levels[rallyLv - 1].effect.deployLimit || 0 : 0;
   const overLimit = totalDeployed > deployLimit;
-  const canAttack = selectedCamp && !selectedCamp.occupied && totalDeployed > 0 && !overLimit && selectedCamp.raiders > 0;
+  const canAttack = selectedCamp && !selectedCamp.occupied && totalDeployed > 0 && !overLimit &&
+    ((selectedCamp.kind === 'worldBoss' || selectedCamp.kind === 'realm') ? (selectedCamp.bossActive && selectedCamp.raiders > 0) : selectedCamp.raiders > 0);
   const canGarrison = selectedCamp?.occupied && totalDeployed > 0 && !overLimit;
 
   const selectedPred = selectedCamp && !selectedCamp.occupied && totalDeployed > 0
@@ -64,7 +65,7 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
         <div className="sticky top-0 bg-bg-card border-b border-border px-4 py-3 flex justify-between items-center z-10">
           <div>
             <h2 className="text-lg font-bold text-text-primary">🗺️ 洪荒地图</h2>
-            <p className="text-xs text-text-muted">周边 {camps.length} 据点 · {npcs.length} 敌方部落 · 行军中 {marchQueue.length}</p>
+            <p className="text-xs text-text-muted">据点 {camps.length} · 敌方 {npcs.length} · 行军 {marchQueue.length}</p>
           </div>
           <button onClick={onClose} className="text-text-muted hover:text-text-primary text-2xl px-2">×</button>
         </div>
@@ -98,7 +99,7 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
           )}
 
           {/* 简化地图 */}
-          <div className="relative bg-gradient-to-br from-amber-50 to-emerald-50 border border-border rounded-lg p-3 mb-1 h-44 overflow-hidden">
+          <div className="relative bg-gradient-to-br from-amber-50 to-emerald-50 border border-border rounded-lg p-3 mb-1 h-52 overflow-hidden">
             <div className="absolute left-[20%] bottom-[20%] -translate-x-1/2 -translate-y-1/2 bg-bg-card border-2 border-pop rounded-lg px-2 py-1 text-xs">
               <div className="text-base text-center">⛰️</div>
               <div className="text-text-primary font-semibold">我方部落</div>
@@ -108,16 +109,25 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
               const isSelected = selectedCampId === c.id;
               const cleared = c.raiders === 0;
               const rc = getRaiderConfig(c.raiderType);
+              // 世界Boss/秘境：未激活时不显示
+              if ((c.kind === 'worldBoss' || c.kind === 'realm') && !c.bossActive) return null;
+              const emoji = c.kind === 'worldBoss' ? '🐉' : c.kind === 'realm' ? '🌌' : c.kind === 'resource' ? '💎' : c.occupied ? '🏴' : cleared ? '🏳️' : rc.emoji;
+              const borderClass = c.kind === 'worldBoss' ? 'border-red-600 animate-pulse' : c.kind === 'realm' ? 'border-purple-500 animate-pulse' : c.kind === 'resource' ? 'border-amber-500' : 'border-border';
               return (
                 <button
                   key={c.id}
                   onClick={() => { setSelectedCampId(c.id); setSelectedNpcId(null); setDeployed({}); }}
                   className={`absolute -translate-x-1/2 -translate-y-1/2 border-2 rounded px-1.5 py-0.5 text-xs transition
-                    ${isSelected ? 'border-red-500 ring-2 ring-red-300' : 'border-border'} ${c.occupied ? 'ring-2 ring-emerald-400' : ''}`}
+                    ${isSelected ? 'border-red-500 ring-2 ring-red-300' : borderClass} ${c.occupied ? 'ring-2 ring-emerald-400' : ''}`}
                   style={{ left: `${c.position.x}%`, top: `${c.position.y}%` }}
                 >
-                  <div className="text-base">{c.occupied ? '🏴' : cleared ? '🏳️' : rc.emoji}</div>
+                  <div className="text-base">{emoji}</div>
                   <div className="text-text-primary font-semibold whitespace-nowrap">{c.name}</div>
+                  {c.kind === 'worldBoss' && c.bossActive && c.bossMaxHp && (
+                    <div className="w-16 bg-red-200 rounded-full h-1 mt-0.5">
+                      <div className="bg-red-600 h-full rounded-full" style={{ width: `${Math.max(0, ((c.bossHp||0) / c.bossMaxHp) * 100)}%` }} />
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -145,15 +155,20 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
           {selectedCamp && (() => {
             const rc = getRaiderConfig(selectedCamp.raiderType);
             const tpl = CAMP_TEMPLATES.find((t) => t.name === selectedCamp.name);
+            const isBoss = selectedCamp.kind === 'worldBoss' || selectedCamp.kind === 'realm';
+            const isResource = selectedCamp.kind === 'resource';
+            const campEmoji = isBoss ? '🐉' : isResource ? '💎' : selectedCamp.occupied ? '🏴' : rc.emoji;
             return (
               <div className="space-y-3">
                 {/* 据点信息 */}
                 <div className="border border-border rounded-lg p-3 bg-bg-secondary">
                   <div className="flex items-start gap-3">
-                    <div className="text-4xl">{selectedCamp.occupied ? '🏴' : rc.emoji}</div>
+                    <div className="text-4xl">{campEmoji}</div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold text-text-primary">{selectedCamp.name}</h3>
+                        {isBoss && <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700 animate-pulse">世界Boss</span>}
+                        {isResource && <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">资源矿点</span>}
                         <span className={`text-xs px-1.5 py-0.5 rounded
                           ${selectedCamp.difficulty === 'small' ? 'bg-green-100 text-green-700' : selectedCamp.difficulty === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
                           {selectedCamp.difficulty === 'small' ? '低' : selectedCamp.difficulty === 'medium' ? '中' : '高'}
@@ -161,8 +176,27 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
                         {selectedCamp.occupied && <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">已占领</span>}
                         {selectedCamp.scouted && <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">已侦查</span>}
                       </div>
-                      {selectedCamp.occupied ? (
-                        <p className="text-xs text-emerald-700 mt-1">✅ 已占领，驻守兵力产出资源</p>
+                      {/* 世界Boss 血条 */}
+                      {isBoss && selectedCamp.bossActive && selectedCamp.bossMaxHp ? (
+                        <div className="mt-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-red-600 font-semibold">妖兽 HP {selectedCamp.bossHp}/{selectedCamp.bossMaxHp}</span>
+                            <span className="text-text-muted">{((selectedCamp.bossHp||0) / selectedCamp.bossMaxHp * 100).toFixed(0)}%</span>
+                          </div>
+                          <div className="w-full bg-red-200 rounded-full h-2 mt-0.5">
+                            <div className="bg-red-600 h-full rounded-full transition-all" style={{ width: `${Math.max(0, ((selectedCamp.bossHp||0) / selectedCamp.bossMaxHp) * 100)}%` }} />
+                          </div>
+                          <p className="text-xs text-text-muted mt-1">{rc.emoji} {rc.name} ×{selectedCamp.raiders}</p>
+                          <p className="text-[10px] text-amber-700 mt-0.5">⚠️ 可多次出征，按伤害比例获得奖励</p>
+                        </div>
+                      ) : isBoss && !selectedCamp.bossActive ? (
+                        <p className="text-xs text-text-muted mt-1">
+                          {selectedCamp.bossRespawnAt ? `⏳ 下次刷新：${Math.ceil((selectedCamp.bossRespawnAt - Date.now()) / 60000)} 分钟后` : '未激活'}
+                        </p>
+                      ) : selectedCamp.occupied ? (
+                        <p className="text-xs text-emerald-700 mt-1">✅ 已占领，驻守兵力产出资源
+                          {isResource && selectedCamp.resourceType && `（${{wood:'木',clay:'陶土',iron:'铜',crop:'粟'}[selectedCamp.resourceType]} 专属+120/h）`}
+                        </p>
                       ) : selectedCamp.raiders <= 0 ? (
                         <p className="text-xs text-text-muted mt-1">据点已清空，妖兽将在 60s 后卷土重来</p>
                       ) : (
@@ -171,11 +205,11 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
                           {selectedCamp.scouted && `（攻${rc.attack}/防${rc.defense}/HP${rc.hp}）`}
                         </p>
                       )}
-                      {selectedCamp.scouted && (
+                      {selectedCamp.scouted && !isBoss && (
                         <p className="text-[10px] text-text-muted mt-0.5 italic">{rc.lore}</p>
                       )}
                       {/* 侦查按钮 */}
-                      {!selectedCamp.scouted && !selectedCamp.occupied && selectedCamp.raiders > 0 && (
+                      {!selectedCamp.scouted && !selectedCamp.occupied && selectedCamp.raiders > 0 && !isBoss && (
                         <button
                           onClick={() => scoutCamp(selectedCamp.id)}
                           disabled={village.resources.iron < 50}
@@ -334,7 +368,11 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
                 )}
 
                 {/* 出征 / 驻守按钮 */}
-                {!selectedCamp.occupied && selectedCamp.raiders > 0 && (
+                {!selectedCamp.occupied && (
+                  (selectedCamp.kind === 'worldBoss' || selectedCamp.kind === 'realm')
+                    ? selectedCamp.bossActive && selectedCamp.raiders > 0
+                    : selectedCamp.raiders > 0
+                ) && (
                   <button
                     disabled={!canAttack}
                     onClick={() => {
@@ -511,7 +549,12 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
               const cleared = c.raiders === 0;
               const rc = getRaiderConfig(c.raiderType);
               const tpl = CAMP_TEMPLATES.find((t) => t.name === c.name);
-              const pred = totalArmy(village.units) > 0 && !c.occupied && !cleared
+              const isBoss = c.kind === 'worldBoss' || c.kind === 'realm';
+              const isResource = c.kind === 'resource';
+              // 世界Boss/秘境：未激活跳过
+              if (isBoss && !c.bossActive) return null;
+              const emoji = isBoss ? '🐉' : isResource ? '💎' : c.occupied ? '🏴' : cleared ? '🏳️' : rc.emoji;
+              const pred = !isBoss && totalArmy(village.units) > 0 && !c.occupied && !cleared
                 ? predictBattle(village.units, village.tribe, c.raiders, c.raiderType, atkMult, defMult)
                 : null;
               return (
@@ -519,28 +562,46 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
                   key={c.id}
                   onClick={() => setSelectedCampId(c.id)}
                   className={`w-full text-left border rounded-lg p-3
-                    ${selectedCampId === c.id ? 'border-pop bg-pop/5' : 'border-border bg-bg-secondary'}`}
+                    ${selectedCampId === c.id ? 'border-pop bg-pop/5' : isBoss ? 'border-red-300 bg-red-50' : isResource ? 'border-amber-300 bg-amber-50' : 'border-border bg-bg-secondary'}`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="text-3xl">{c.occupied ? '🏴' : cleared ? '🏳️' : rc.emoji}</div>
+                    <div className="text-3xl">{emoji}</div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold text-text-primary">{c.name}</h3>
+                        {isBoss && <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">Boss</span>}
+                        {isResource && <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">矿点</span>}
                         <span className={`text-xs px-1.5 py-0.5 rounded
                           ${c.difficulty === 'small' ? 'bg-green-100 text-green-700' : c.difficulty === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
                           {c.difficulty === 'small' ? '低' : c.difficulty === 'medium' ? '中' : '高'}
                         </span>
                         {c.occupied && <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">已占领</span>}
                       </div>
-                      <p className="text-xs text-text-muted mt-0.5">
-                        {c.occupied ? `已占领 · ${rc.name}` : cleared ? '已清空' : `${rc.name} ×${c.raiders}`}
-                      </p>
+                      {isBoss && c.bossActive && c.bossMaxHp ? (
+                        <>
+                          <p className="text-xs text-red-600 mt-0.5">
+                            HP {c.bossHp}/{c.bossMaxHp} · {rc.name} ×{c.raiders}
+                          </p>
+                          <div className="w-full bg-red-200 rounded-full h-1.5 mt-1">
+                            <div className="bg-red-600 h-full rounded-full" style={{ width: `${Math.max(0, ((c.bossHp||0) / c.bossMaxHp) * 100)}%` }} />
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-xs text-text-muted mt-0.5">
+                          {c.occupied ? `已占领 · ${rc.name}` : cleared ? '已清空' : `${rc.name} ×${c.raiders}`}
+                        </p>
+                      )}
                       <p className="text-xs text-amber-700 mt-1">
                         🎁 {c.reward.wood}木/{c.reward.clay}陶土/{c.reward.iron}铜/{c.reward.crop}粟
                       </p>
                       {c.occupied && tpl && (
                         <p className="text-[11px] text-emerald-700 mt-0.5">
                           🏴 驻守产出：{tpl.garrisonYield.wood}木/{tpl.garrisonYield.clay}陶土/{tpl.garrisonYield.iron}铜/{tpl.garrisonYield.crop}粟 /h
+                        </p>
+                      )}
+                      {c.occupied && isResource && (
+                        <p className="text-[11px] text-amber-700 mt-0.5">
+                          💎 专属产出：{c.resourceType && {wood:'木+120/h',clay:'陶土+120/h',iron:'铜+120/h',crop:'粟+120/h'}[c.resourceType]}
                         </p>
                       )}
                       {pred && (

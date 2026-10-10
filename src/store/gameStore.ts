@@ -3,7 +3,7 @@ import type { BattleReport, BuildTask, BuildTarget, FieldType, BuildingType, For
 import { BUILDING_CONFIGS, FIELD_CONFIGS } from '../game/config';
 import { SPEED_MULTIPLIER, createInitialVillage } from '../game/initialState';
 import { QUESTS, buildQuestContext } from '../game/quests';
-import { UNIT_CONFIGS, UNIT_ORDER, aggregateArmy, aggregateRaiders, calcMarchTime, computeUpkeep, FORMATIONS, getUnitDisplay, simulateBattle, CAMP_TEMPLATES } from '../game/units';
+import { UNIT_CONFIGS, UNIT_ORDER, aggregateArmy, aggregateRaiders, calcMarchTime, computeUpkeep, FORMATIONS, getUnitDisplay, simulateBattle, CAMP_TEMPLATES, WORLD_BOSS_CONFIG, REALM_CONFIG, RAIDER_CONFIGS } from '../game/units';
 import { OFFLINE_CAP_MS, OFFLINE_THRESHOLD_MS, SEASON_MILESTONES_BY_POINTS, SEASON_POINT_RULES, checkSeasonRoll } from '../game/season';
 import { TRIBE_BONUS } from '../game/tribes';
 import { ACCEL_COST_JADE, ACCEL_RESET_INTERVAL_MS, DAILY_ACCEL_LIMIT, getCosmetic } from '../game/cosmetics';
@@ -875,13 +875,41 @@ export const useGame = create<GameStore>((set, get) => ({
         }
       }
 
-      // 据点自动刷新：被清空且未占领后 60 秒恢复满员
+      // 据点自动刷新：被清空且未占领后 60 秒恢复，难度递增
       const REFRESH_MS = 60 * 1000;
       const refreshedCamps = { ...v.camps };
       let campChanged = false;
       for (const [id, c] of Object.entries(refreshedCamps)) {
+        // 迁移旧存档：补 kind 字段
+        if (!c.kind) { c.kind = 'normal'; campChanged = true; }
+        // 世界Boss 刷新/过期
+        if (c.kind === 'worldBoss') {
+          if (!c.bossActive && c.bossRespawnAt && now >= c.bossRespawnAt) {
+            refreshedCamps[id] = { ...c, bossActive: true, bossHp: c.bossMaxHp || WORLD_BOSS_CONFIG.bossMaxHp, raiders: c.maxRaiders, bossRespawnAt: now + WORLD_BOSS_CONFIG.activeDurationMs };
+            campChanged = true;
+          } else if (c.bossActive && c.bossRespawnAt && now >= c.bossRespawnAt) {
+            // Boss 活跃时间结束
+            refreshedCamps[id] = { ...c, bossActive: false, raiders: 0, bossHp: 0, bossRespawnAt: now + WORLD_BOSS_CONFIG.respawnMs };
+            campChanged = true;
+          }
+          continue;
+        }
+        // 秘境 刷新/过期
+        if (c.kind === 'realm') {
+          if (!c.bossActive && c.bossRespawnAt && now >= c.bossRespawnAt) {
+            refreshedCamps[id] = { ...c, bossActive: true, raiders: c.maxRaiders, bossRespawnAt: now + REALM_CONFIG.activeDurationMs, realmExpiresAt: now + REALM_CONFIG.activeDurationMs };
+            campChanged = true;
+          } else if (c.bossActive && c.realmExpiresAt && now >= c.realmExpiresAt) {
+            refreshedCamps[id] = { ...c, bossActive: false, raiders: 0, bossRespawnAt: now + REALM_CONFIG.spawnMs, realmExpiresAt: 0 };
+            campChanged = true;
+          }
+          continue;
+        }
+        // 普通据点 & 资源矿点：清空后 60s 恢复，难度递增
         if (!c.occupied && c.raiders === 0 && c.clearedAt && now - c.clearedAt >= REFRESH_MS) {
-          refreshedCamps[id] = { ...c, raiders: c.maxRaiders, clearedAt: undefined };
+          const cc = c.clearCount || 0;
+          const scale = Math.min(1.5, 1 + cc * 0.1); // 每次清空+10%难度，上限+50%
+          refreshedCamps[id] = { ...c, raiders: Math.floor(c.maxRaiders * scale), clearedAt: undefined };
           campChanged = true;
         }
       }
@@ -919,64 +947,157 @@ export const useGame = create<GameStore>((set, get) => ({
               const atkMult = form.atkMod * tribeAttackMultiplier(v) * getAttackTechMultiplier(v.techLevels || {}) * getSmithyAttackBonus(v);
               const defMult = form.defMod * getDefenseTechMultiplier(v.techLevels || {});
               const atkArmy = aggregateArmy(m.units, v.tribe, atkMult, defMult);
-              const defArmy = aggregateRaiders(camp.raiders, camp.raiderType);
-              const result = simulateBattle(atkArmy, defArmy, v.tribe);
 
-              const newCamps = { ...v.camps };
-              const newRaiders = Math.max(0, camp.raiders - result.defenderLost);
-              newCamps[m.campId] = {
-                ...camp,
-                raiders: newRaiders,
-                clearedAt: newRaiders === 0 ? Date.now() : camp.clearedAt,
-                // 战胜且清空 → 标记为已占领（等待玩家驻守）
-                occupied: result.attackerWin && newRaiders === 0 ? true : camp.occupied,
-              };
-              v.camps = newCamps;
+              // 世界Boss / 秘境：可多次攻击，扣血而非全灭
+              if ((camp.kind === 'worldBoss' || camp.kind === 'realm') && camp.bossActive && camp.raiders > 0) {
+                const defArmy = aggregateRaiders(camp.raiders, camp.raiderType);
+                const result = simulateBattle(atkArmy, defArmy, v.tribe);
 
-              // 战胜返还兵力 + 奖励
-              let reward: ResourceCost = { wood: 0, clay: 0, iron: 0, crop: 0 };
-              if (result.attackerWin) {
+                // Boss 扣血 = 本次击杀的妖兽数 × 妖兽HP
+                const raiderCfg = RAIDER_CONFIGS[camp.raiderType];
+                const dmgDealt = result.defenderLost * raiderCfg.hp;
+                const newBossHp = Math.max(0, (camp.bossHp || 0) - dmgDealt);
+                const newRaiders = Math.max(0, camp.raiders - result.defenderLost);
+                const bossDefeated = newBossHp <= 0 || newRaiders === 0;
+
+                // 返还兵力
+                let reward: ResourceCost = { wood: 0, clay: 0, iron: 0, crop: 0 };
                 const after = { ...v.units };
                 for (const u of UNIT_ORDER) {
                   const lost = result.attackerLostByUnit[u] || 0;
                   after[u] = (after[u] || 0) + ((m.units[u] || 0) - lost);
                 }
                 v.units = after;
-                reward = { ...camp.reward };
-                v.resources = {
-                  wood: v.resources.wood + reward.wood,
-                  clay: v.resources.clay + reward.clay,
-                  iron: v.resources.iron + reward.iron,
-                  crop: v.resources.crop + reward.crop,
-                };
-                v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.battleWin };
-                toast.success(`🏹 ${camp.name} 大捷！获得战利品`);
-                playSound('battle_win');
-              } else {
-                toast.error(`🏹 ${camp.name} 战败，出征部队全军覆没`);
-                playSound('battle_lose');
-              }
 
-              const report: BattleReport = {
-                win: result.attackerWin,
-                attackerLost: result.attackerLost,
-                attackerLostByUnit: result.attackerLostByUnit,
-                defenderLost: result.defenderLost,
-                reward,
-                campId: m.campId,
-                campName: camp.name,
-                formation: m.formation,
-                at: Date.now(),
-              };
-              setTimeout(() => {
-                useGame.setState((st) => {
-                  const reports = [...st.battleReports, report].slice(-MAX_REPORTS);
-                  saveBattleReports(reports, st.village.playerName || undefined);
-                  return { battleReports: reports };
-                });
-                const wins = useGame.getState().battleReports.filter((r) => r.win).length;
-                checkQuests(set, v, useGame.getState().completedQuests, wins);
-              }, 0);
+                if (bossDefeated) {
+                  // 击败Boss：大奖励
+                  reward = { ...camp.reward };
+                  v.resources = {
+                    wood: v.resources.wood + reward.wood,
+                    clay: v.resources.clay + reward.clay,
+                    iron: v.resources.iron + reward.iron,
+                    crop: v.resources.crop + reward.crop,
+                  };
+                  v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.battleWin * 3 };
+                  const newCamps2 = { ...v.camps };
+                  newCamps2[m.campId] = {
+                    ...camp,
+                    bossActive: false,
+                    bossHp: 0,
+                    raiders: 0,
+                    occupied: camp.kind === 'realm' ? false : true, // 世界Boss可占领驻守
+                    clearedAt: Date.now(),
+                    clearCount: (camp.clearCount || 0) + 1,
+                    bossRespawnAt: Date.now() + (camp.kind === 'worldBoss' ? WORLD_BOSS_CONFIG.respawnMs : REALM_CONFIG.spawnMs),
+                    realmExpiresAt: 0,
+                  };
+                  v.camps = newCamps2;
+                  toast.success(`🏆 击败 ${camp.name}！获得丰厚战利品！`);
+                  playSound('battle_win');
+                } else {
+                  // Boss未死，按伤害比例给奖励
+                  const dmgRatio = dmgDealt / (camp.bossMaxHp || 1);
+                  reward = {
+                    wood: Math.floor(camp.reward.wood * dmgRatio * 0.3),
+                    clay: Math.floor(camp.reward.clay * dmgRatio * 0.3),
+                    iron: Math.floor(camp.reward.iron * dmgRatio * 0.3),
+                    crop: Math.floor(camp.reward.crop * dmgRatio * 0.3),
+                  };
+                  v.resources = {
+                    wood: v.resources.wood + reward.wood,
+                    clay: v.resources.clay + reward.clay,
+                    iron: v.resources.iron + reward.iron,
+                    crop: v.resources.crop + reward.crop,
+                  };
+                  const newCamps3 = { ...v.camps };
+                  newCamps3[m.campId] = { ...camp, bossHp: newBossHp, raiders: newRaiders };
+                  v.camps = newCamps3;
+                  toast.success(`⚔️ 对 ${camp.name} 造成 ${Math.round(dmgDealt)} 伤害！剩余 ${(newBossHp / (camp.bossMaxHp || 1) * 100).toFixed(0)}%`);
+                  playSound('battle_win');
+                }
+
+                const report: BattleReport = {
+                  win: bossDefeated,
+                  attackerLost: result.attackerLost,
+                  attackerLostByUnit: result.attackerLostByUnit,
+                  defenderLost: result.defenderLost,
+                  reward,
+                  campId: m.campId,
+                  campName: camp.name,
+                  formation: m.formation,
+                  at: Date.now(),
+                };
+                setTimeout(() => {
+                  useGame.setState((st) => {
+                    const reports = [...st.battleReports, report].slice(-MAX_REPORTS);
+                    saveBattleReports(reports, st.village.playerName || undefined);
+                    return { battleReports: reports };
+                  });
+                  const wins = useGame.getState().battleReports.filter((r) => r.win).length;
+                  checkQuests(set, v, useGame.getState().completedQuests, wins);
+                }, 0);
+              } else {
+                // 普通据点 & 资源矿点：原有逻辑
+                const defArmy = aggregateRaiders(camp.raiders, camp.raiderType);
+                const result = simulateBattle(atkArmy, defArmy, v.tribe);
+
+                const newCamps = { ...v.camps };
+                const newRaiders = Math.max(0, camp.raiders - result.defenderLost);
+                newCamps[m.campId] = {
+                  ...camp,
+                  raiders: newRaiders,
+                  clearedAt: newRaiders === 0 ? Date.now() : camp.clearedAt,
+                  // 战胜且清空 → 标记为已占领（等待玩家驻守）
+                  occupied: result.attackerWin && newRaiders === 0 ? true : camp.occupied,
+                  clearCount: newRaiders === 0 ? (camp.clearCount || 0) + 1 : (camp.clearCount || 0),
+                };
+                v.camps = newCamps;
+
+                // 战胜返还兵力 + 奖励
+                let reward: ResourceCost = { wood: 0, clay: 0, iron: 0, crop: 0 };
+                if (result.attackerWin) {
+                  const after = { ...v.units };
+                  for (const u of UNIT_ORDER) {
+                    const lost = result.attackerLostByUnit[u] || 0;
+                    after[u] = (after[u] || 0) + ((m.units[u] || 0) - lost);
+                  }
+                  v.units = after;
+                  reward = { ...camp.reward };
+                  v.resources = {
+                    wood: v.resources.wood + reward.wood,
+                    clay: v.resources.clay + reward.clay,
+                    iron: v.resources.iron + reward.iron,
+                    crop: v.resources.crop + reward.crop,
+                  };
+                  v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.battleWin };
+                  toast.success(`🏹 ${camp.name} 大捷！获得战利品`);
+                  playSound('battle_win');
+                } else {
+                  toast.error(`🏹 ${camp.name} 战败，出征部队全军覆没`);
+                  playSound('battle_lose');
+                }
+
+                const report: BattleReport = {
+                  win: result.attackerWin,
+                  attackerLost: result.attackerLost,
+                  attackerLostByUnit: result.attackerLostByUnit,
+                  defenderLost: result.defenderLost,
+                  reward,
+                  campId: m.campId,
+                  campName: camp.name,
+                  formation: m.formation,
+                  at: Date.now(),
+                };
+                setTimeout(() => {
+                  useGame.setState((st) => {
+                    const reports = [...st.battleReports, report].slice(-MAX_REPORTS);
+                    saveBattleReports(reports, st.village.playerName || undefined);
+                    return { battleReports: reports };
+                  });
+                  const wins = useGame.getState().battleReports.filter((r) => r.win).length;
+                  checkQuests(set, v, useGame.getState().completedQuests, wins);
+                }, 0);
+              }
             } else if (m.kind === 'garrison' && camp) {
               // 驻守兵力到达
               const existing = camp.garrison || {};
@@ -1960,7 +2081,7 @@ function loadVillage(playerName?: string): VillageState {
         cavalry: oldUnits?.cavalry ?? 0,
         guard: oldUnits?.guard ?? 0,
       };
-      // 迁移旧据点：补充 raiderType/occupied/scouted 字段
+      // 迁移旧据点：补充 raiderType/occupied/scouted/kind 字段，补全新据点
       const migratedCamps: VillageState['camps'] = {};
       for (const [id, c] of Object.entries(parsed.camps || {})) {
         migratedCamps[id] = {
@@ -1968,7 +2089,14 @@ function loadVillage(playerName?: string): VillageState {
           raiderType: c.raiderType || 'demon',
           occupied: c.occupied || false,
           scouted: c.scouted || false,
+          kind: c.kind || 'normal',
+          clearCount: c.clearCount || 0,
         };
+      }
+      // 补全新增据点（资源矿点/世界Boss/秘境）
+      const freshCamps = createInitialVillage().camps;
+      for (const [id, c] of Object.entries(freshCamps)) {
+        if (!migratedCamps[id]) migratedCamps[id] = c;
       }
       parsed.camps = migratedCamps;
       parsed.marchQueue = parsed.marchQueue || [];

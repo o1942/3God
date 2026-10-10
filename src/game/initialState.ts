@@ -1,5 +1,5 @@
 import type { TribeType, UnitType, VillageState } from './types';
-import { CAMP_TEMPLATES, CAMP_POSITIONS } from './units';
+import { CAMP_TEMPLATES, CAMP_POSITIONS, RESOURCE_NODE_TEMPLATES, RESOURCE_NODE_POSITIONS, WORLD_BOSS_CONFIG, REALM_CONFIG } from './units';
 import { createInitialSeason } from './season';
 import { createNewbieShield } from './shield';
 import { generateNpcVillages } from './pvp';
@@ -39,6 +39,7 @@ export const INITIAL_BUILDINGS = {
 // 创建初始野怪据点
 function createInitialCamps(): VillageState['camps'] {
   const camps: VillageState['camps'] = {};
+  // 普通据点
   Object.entries(CAMP_POSITIONS).forEach(([id, pos], idx) => {
     const tpl = CAMP_TEMPLATES[idx];
     camps[id] = {
@@ -46,14 +47,72 @@ function createInitialCamps(): VillageState['camps'] {
       name: tpl.name,
       raiderType: tpl.raiderType,
       difficulty: tpl.difficulty,
+      kind: 'normal',
       raiders: tpl.maxRaiders,
       maxRaiders: tpl.maxRaiders,
       reward: { ...tpl.reward },
       position: pos,
       occupied: false,
       scouted: false,
+      clearCount: 0,
     };
   });
+  // 资源矿点
+  RESOURCE_NODE_TEMPLATES.forEach((tpl) => {
+    const pos = RESOURCE_NODE_POSITIONS[tpl.id];
+    camps[tpl.id] = {
+      id: tpl.id,
+      name: tpl.name,
+      raiderType: tpl.raiderType,
+      difficulty: 'small',
+      kind: 'resource',
+      raiders: tpl.maxRaiders,
+      maxRaiders: tpl.maxRaiders,
+      reward: { ...tpl.reward },
+      position: pos,
+      occupied: false,
+      scouted: false,
+      resourceType: tpl.resourceType,
+      clearCount: 0,
+    };
+  });
+  // 世界Boss：初始未激活，30分钟后首次刷新
+  camps['world_boss'] = {
+    id: 'world_boss',
+    name: WORLD_BOSS_CONFIG.name,
+    raiderType: WORLD_BOSS_CONFIG.raiderType,
+    difficulty: 'large',
+    kind: 'worldBoss',
+    raiders: 0,
+    maxRaiders: WORLD_BOSS_CONFIG.bossMaxRaiders,
+    reward: { ...WORLD_BOSS_CONFIG.reward },
+    position: WORLD_BOSS_CONFIG.position,
+    occupied: false,
+    scouted: false,
+    bossActive: false,
+    bossHp: 0,
+    bossMaxHp: WORLD_BOSS_CONFIG.bossMaxHp,
+    bossRespawnAt: Date.now() + WORLD_BOSS_CONFIG.respawnMs,
+    clearCount: 0,
+  };
+  // 秘境：初始未激活，2小时后首次刷新
+  camps['realm'] = {
+    id: 'realm',
+    name: REALM_CONFIG.name,
+    raiderType: REALM_CONFIG.raiderType,
+    difficulty: 'large',
+    kind: 'realm',
+    raiders: 0,
+    maxRaiders: REALM_CONFIG.maxRaiders,
+    reward: { ...REALM_CONFIG.reward },
+    position: REALM_CONFIG.position,
+    occupied: false,
+    scouted: false,
+    bossActive: false,
+    bossRespawnAt: Date.now() + REALM_CONFIG.spawnMs,
+    realmExpiresAt: 0,
+    clearCount: 0,
+  };
   return camps;
 }
 

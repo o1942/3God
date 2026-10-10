@@ -225,6 +225,10 @@ export const CAMP_TEMPLATES: CampTemplate[] = [
   { name: '山精洞窟', raiderType: 'mountainSpirit', difficulty: 'medium', maxRaiders: 20, reward: { wood: 500, clay: 500, iron: 500, crop: 500 }, garrisonYield: { wood: 80, clay: 80, iron: 80, crop: 80 } },
   { name: '巨蟒沼泽', raiderType: 'serpent', difficulty: 'medium', maxRaiders: 18, reward: { wood: 450, clay: 600, iron: 550, crop: 700 }, garrisonYield: { wood: 70, clay: 100, iron: 90, crop: 120 } },
   { name: '妖王殿', raiderType: 'demonKing', difficulty: 'large', maxRaiders: 50, reward: { wood: 1500, clay: 1500, iron: 1500, crop: 1500 }, garrisonYield: { wood: 250, clay: 250, iron: 250, crop: 250 } },
+  // 新增据点
+  { name: '幽狼荒原', raiderType: 'wolf', difficulty: 'small', maxRaiders: 15, reward: { wood: 300, clay: 250, iron: 350, crop: 300 }, garrisonYield: { wood: 50, clay: 40, iron: 60, crop: 50 } },
+  { name: '蛇窟深穴', raiderType: 'serpent', difficulty: 'medium', maxRaiders: 25, reward: { wood: 600, clay: 700, iron: 650, crop: 800 }, garrisonYield: { wood: 90, clay: 120, iron: 100, crop: 140 } },
+  { name: '蛮荒妖窟', raiderType: 'demon', difficulty: 'medium', maxRaiders: 30, reward: { wood: 700, clay: 700, iron: 700, crop: 700 }, garrisonYield: { wood: 100, clay: 100, iron: 100, crop: 100 } },
 ];
 
 export const CAMP_POSITIONS: Record<string, { x: number; y: number }> = {
@@ -233,6 +237,49 @@ export const CAMP_POSITIONS: Record<string, { x: number; y: number }> = {
   camp_3: { x: 82, y: 62 },
   camp_4: { x: 70, y: 80 },
   camp_5: { x: 55, y: 90 },
+  camp_6: { x: 35, y: 30 },
+  camp_7: { x: 50, y: 12 },
+  camp_8: { x: 15, y: 45 },
+};
+
+// 资源矿点：占领后持续产出单一资源
+export const RESOURCE_NODE_TEMPLATES = [
+  { id: 'res_wood', name: '灵木林', resourceType: 'wood' as const, maxRaiders: 12, raiderType: 'mountainSpirit' as RaiderType, reward: { wood: 400, clay: 100, iron: 100, crop: 100 }, garrisonYield: { wood: 120, clay: 0, iron: 0, crop: 0 } },
+  { id: 'res_clay', name: '陶土丘', resourceType: 'clay' as const, maxRaiders: 12, raiderType: 'mountainSpirit' as RaiderType, reward: { wood: 100, clay: 400, iron: 100, crop: 100 }, garrisonYield: { wood: 0, clay: 120, iron: 0, crop: 0 } },
+  { id: 'res_iron', name: '铜矿山', resourceType: 'iron' as const, maxRaiders: 15, raiderType: 'wolf' as RaiderType, reward: { wood: 100, clay: 100, iron: 400, crop: 100 }, garrisonYield: { wood: 0, clay: 0, iron: 120, crop: 0 } },
+  { id: 'res_crop', name: '灵粟田', resourceType: 'crop' as const, maxRaiders: 10, raiderType: 'demon' as RaiderType, reward: { wood: 100, clay: 100, iron: 100, crop: 400 }, garrisonYield: { wood: 0, clay: 0, iron: 0, crop: 120 } },
+];
+
+export const RESOURCE_NODE_POSITIONS: Record<string, { x: number; y: number }> = {
+  res_wood: { x: 92, y: 72 },
+  res_clay: { x: 25, y: 15 },
+  res_iron: { x: 65, y: 35 },
+  res_crop: { x: 40, y: 65 },
+};
+
+// 世界Boss：洪荒巨兽
+export const WORLD_BOSS_CONFIG = {
+  name: '洪荒巨兽',
+  raiderType: 'demonKing' as RaiderType,
+  bossMaxHp: 5000,       // 总血量
+  bossMaxRaiders: 200,   // 显示妖兽数
+  reward: { wood: 3000, clay: 3000, iron: 3000, crop: 3000 },
+  garrisonYield: { wood: 500, clay: 500, iron: 500, crop: 500 },
+  respawnMs: 30 * 60 * 1000,   // 30 分钟刷新
+  activeDurationMs: 15 * 60 * 1000,  // 活跃 15 分钟
+  position: { x: 50, y: 50 },
+};
+
+// 秘境：限时高难本
+export const REALM_CONFIG = {
+  name: '洪荒秘境',
+  raiderType: 'demonKing' as RaiderType,
+  maxRaiders: 80,
+  reward: { wood: 5000, clay: 5000, iron: 5000, crop: 5000 },
+  garrisonYield: { wood: 400, clay: 400, iron: 400, crop: 400 },
+  spawnMs: 2 * 60 * 60 * 1000,    // 2 小时刷新一次
+  activeDurationMs: 30 * 60 * 1000, // 活跃 30 分钟
+  position: { x: 88, y: 88 },
 };
 
 // 我方部落位置（地图中心偏左下）

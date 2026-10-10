@@ -23,6 +23,8 @@ const MapPanel = lazy(() => import('./components/MapPanel').then(m => ({ default
 const QuestPanel = lazy(() => import('./components/QuestPanel').then(m => ({ default: m.QuestPanel })));
 const SeasonPanel = lazy(() => import('./components/SeasonPanel').then(m => ({ default: m.SeasonPanel })));
 const EventLogPanel = lazy(() => import('./components/EventLogPanel').then(m => ({ default: m.EventLogPanel })));
+const MarketPanel = lazy(() => import('./components/MarketPanel').then(m => ({ default: m.MarketPanel })));
+const AlliancePanel = lazy(() => import('./components/AlliancePanel').then(m => ({ default: m.AlliancePanel })));
 import { SEASON_MILESTONES } from './game/season';
 import { QUESTS } from './game/quests';
 import { TRIBE_CONFIGS, TRIBE_ORDER } from './game/tribes';
@@ -54,6 +56,8 @@ function App() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [showEventLog, setShowEventLog] = useState(false);
+  const [showMarket, setShowMarket] = useState(false);
+  const [showAlliance, setShowAlliance] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('fields');
   // 部落选择：登录后如未选部落则需选择
   const [showTribeSelect, setShowTribeSelect] = useState(false);
@@ -297,6 +301,8 @@ function App() {
           onClick={() => barracksLv > 0 && setShowBarracks(true)}
         />
         <NavBtn icon="🗺️" label="地图" onClick={() => setShowMap(true)} />
+        <NavBtn icon="🏪" label="集市" onClick={() => setShowMarket(true)} />
+        <NavBtn icon="🛡️" label="联盟" onClick={() => setShowAlliance(true)} />
         <NavBtn
           icon="🌐"
           label="全服"
@@ -358,6 +364,8 @@ function App() {
         {showSeason && <SeasonPanel onClose={() => setShowSeason(false)} />}
         {showLeaderboard && <LeaderboardPanel onClose={() => setShowLeaderboard(false)} />}
         {showEventLog && <EventLogPanel onClose={() => setShowEventLog(false)} />}
+        {showMarket && <MarketPanel onClose={() => setShowMarket(false)} />}
+        {showAlliance && <AlliancePanel onClose={() => setShowAlliance(false)} />}
       </Suspense>
 
       {/* 部落选择浮层 */}

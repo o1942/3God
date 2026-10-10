@@ -159,7 +159,7 @@ export const useAllianceStore = create<AllianceState>((set, get) => ({
     try {
       const sb = await ensureClient();
       if (!sb) { toast.error('后端未配置'); return false; }
-      const { error } = await sb.rpc('invite_to_alliance', { p_token: token, p_player_id: playerId });
+      const { error } = await sb.rpc('invite_to_alliance', { p_token: token, p_player_name: playerId });
       if (error) throw error;
       toast.success('邀请已发送');
       return true;
@@ -175,7 +175,7 @@ export const useAllianceStore = create<AllianceState>((set, get) => ({
     try {
       const sb = await ensureClient();
       if (!sb) { toast.error('后端未配置'); return false; }
-      const { error } = await sb.rpc('kick_member', { p_token: token, p_player_id: playerId });
+      const { error } = await sb.rpc('kick_member', { p_token: token, p_player_name: playerId });
       if (error) throw error;
       toast.success('已踢出该成员');
       await get().loadMyAlliance();
@@ -192,7 +192,7 @@ export const useAllianceStore = create<AllianceState>((set, get) => ({
     try {
       const sb = await ensureClient();
       if (!sb) { toast.error('后端未配置'); return false; }
-      const { error } = await sb.rpc('transfer_leadership', { p_token: token, p_new_leader_id: playerId });
+      const { error } = await sb.rpc('transfer_leadership', { p_token: token, p_new_leader_name: playerId });
       if (error) throw error;
       toast.success('盟主已转让');
       await get().loadMyAlliance();
@@ -210,7 +210,7 @@ export const useAllianceStore = create<AllianceState>((set, get) => ({
       const sb = await ensureClient();
       if (!sb) { toast.error('后端未配置'); return false; }
       const { error } = await sb.rpc('set_member_role', {
-        p_token: token, p_player_id: playerId, p_role: role,
+        p_token: token, p_player_name: playerId, p_role: role,
       });
       if (error) throw error;
       toast.success('职位已更新');

@@ -741,3 +741,137 @@ export const BUILDING_ART: Partial<Record<BuildingType, (p: ArtProps) => ReactEl
   workshop: WorkshopArt,
   wall: WallArt,
 };
+
+// ========== 远古村落底图（SVG） ==========
+// 俯视角度的洪荒部落：山脉、河流、栅栏、帐篷、篝火、图腾
+export function VillageSceneArt({ className }: ArtProps) {
+  return (
+    <svg viewBox="0 0 400 225" className={className} preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#3a4a5a" />
+          <stop offset="60%" stopColor="#5a6a5a" />
+          <stop offset="100%" stopColor="#4a5a3a" />
+        </linearGradient>
+        <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#6b6233" />
+          <stop offset="50%" stopColor="#5a5028" />
+          <stop offset="100%" stop-color="#3d3520" />
+        </linearGradient>
+        <linearGradient id="river" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#3a8aa8" />
+          <stop offset="100%" stopColor="#2a6a88" />
+        </linearGradient>
+        <radialGradient id="fire" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ff9a3a" stopOpacity="0.9" />
+          <stop offset="60%" stopColor="#e85a2a" stopOpacity="0.4" />
+          <stop offset="100%" stopColor="#e85a2a" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="sun" cx="80%" cy="15%" r="40%">
+          <stop offset="0%" stopColor="#ffd980" stopOpacity="0.6" />
+          <stop offset="100%" stopColor="#ffd980" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      {/* 天空 */}
+      <rect width="400" height="225" fill="url(#sky)" />
+      {/* 暖光 */}
+      <rect width="400" height="225" fill="url(#sun)" />
+
+      {/* 远山 */}
+      <polygon points="0,80 60,35 120,55 180,28 240,50 320,25 400,48 400,90 0,90" fill="#3a4538" opacity="0.7" />
+      <polygon points="0,90 50,55 110,70 170,48 230,65 310,42 400,60 400,100 0,100" fill="#4a5548" opacity="0.6" />
+      {/* 山雾 */}
+      <ellipse cx="120" cy="75" rx="50" ry="6" fill="#8a9a8a" opacity="0.15" />
+      <ellipse cx="280" cy="70" rx="45" ry="5" fill="#8a9a8a" opacity="0.15" />
+
+      {/* 地面 */}
+      <rect y="90" width="400" height="135" fill="url(#ground)" />
+
+      {/* 河流：弧形环绕村落 */}
+      <path d="M 0,140 Q 50,100 120,115 Q 200,135 280,108 Q 340,92 400,120 L 400,225 L 0,225 Z" fill="url(#river)" opacity="0.75" />
+      {/* 河面反光 */}
+      <path d="M 40,148 Q 120,125 200,145 Q 280,162 360,135" stroke="#7ac8e0" strokeWidth="1.5" fill="none" opacity="0.3" />
+      <path d="M 20,170 Q 150,150 250,175 Q 320,185 380,165" stroke="#7ac8e0" strokeWidth="1" fill="none" opacity="0.2" />
+
+      {/* 远处树丛 */}
+      {Array.from({ length: 8 }).map((_, i) => (
+        <circle key={`tree-far-${i}`} cx={20 + i * 48 + (i % 2) * 12} cy={88 + (i % 2) * 3} r={5 + (i % 3)} fill="#3a4a2a" opacity="0.6" />
+      ))}
+      {/* 近处树丛 */}
+      {Array.from({ length: 6 }).map((_, i) => (
+        <g key={`tree-near-${i}`}>
+          <rect x={15 + i * 65 + (i % 2) * 20} y={185} width="2" height="10" fill="#3a2a1a" />
+          <circle cx={16 + i * 65 + (i % 2) * 20} cy={182} r={6 + (i % 2) * 2} fill="#2a4220" opacity="0.8" />
+        </g>
+      ))}
+
+      {/* 栅栏围墙（椭圆形俯视） */}
+      <ellipse cx="200" cy="155" rx="115" ry="52" fill="none" stroke="#5a4028" strokeWidth="2.5" strokeDasharray="5,3" opacity="0.7" />
+      {/* 栅栏立柱 */}
+      {Array.from({ length: 16 }).map((_, i) => {
+        const angle = (i / 16) * Math.PI * 2;
+        const x = 200 + Math.cos(angle) * 115;
+        const y = 155 + Math.sin(angle) * 52;
+        return <rect key={`post-${i}`} x={x - 1.2} y={y - 4} width="2.4" height="8" fill="#4a3020" rx="1" />;
+      })}
+
+      {/* 四角箭楼 */}
+      {[
+        { x: 88, y: 108 }, { x: 312, y: 108 },
+        { x: 88, y: 202 }, { x: 312, y: 202 },
+      ].map((t, i) => (
+        <g key={`tower-${i}`}>
+          <rect x={t.x - 5} y={t.y - 8} width="10" height="14" fill="#3a2a1a" rx="1" />
+          <polygon points={`${t.x - 6},${t.y - 8} ${t.x + 6},${t.y - 8} ${t.x},${t.y - 16}`} fill="#4a3520" />
+          <rect x={t.x - 3} y={t.y - 5} width="6" height="4" fill="#5a4028" opacity="0.6" />
+        </g>
+      ))}
+
+      {/* 中心大殿（封禅台） */}
+      <ellipse cx="200" cy="155" rx="28" ry="14" fill="#6a5038" />
+      <ellipse cx="200" cy="148" rx="24" ry="10" fill="#7a5a40" />
+      {/* 三层台基 */}
+      <ellipse cx="200" cy="146" rx="20" ry="8" fill="#5a4028" />
+      <ellipse cx="200" cy="144" rx="14" ry="5" fill="#4a3020" />
+      {/* 燔柴祭火 */}
+      <circle cx="200" cy="140" r="10" fill="url(#fire)" />
+      <circle cx="200" cy="141" r="3" fill="#ffe0a0" opacity="0.8" />
+      {/* 图腾柱 */}
+      <rect x="199" y="128" width="2" height="14" fill="#3a2a1a" />
+      <polygon points="198,128 202,128 200,122" fill="#5a4030" />
+
+      {/* 周围帐篷群 */}
+      {[
+        { x: 160, y: 130, r: 8 }, { x: 240, y: 130, r: 8 },
+        { x: 145, y: 165, r: 7 }, { x: 255, y: 165, r: 7 },
+        { x: 175, y: 180, r: 6 }, { x: 225, y: 180, r: 6 },
+        { x: 200, y: 175, r: 7 },
+        { x: 130, y: 145, r: 6 }, { x: 270, y: 145, r: 6 },
+      ].map((t, i) => (
+        <g key={`tent-${i}`}>
+          <ellipse cx={t.x} cy={t.y + 3} rx={t.r} ry={t.r * 0.4} fill="#3a3020" opacity="0.5" />
+          <polygon points={`${t.x - t.r},${t.y + 3} ${t.x + t.r},${t.y + 3} ${t.x},${t.y - t.r * 0.8}`} fill="#c8b888" opacity="0.8" />
+          <polygon points={`${t.x - t.r * 0.6},${t.y + 2} ${t.x},${t.y - t.r * 0.8} ${t.x},${t.y + 2}`} fill="#a89868" opacity="0.6" />
+        </g>
+      ))}
+
+      {/* 篝火 */}
+      <circle cx="155" cy="152" r="7" fill="url(#fire)" opacity="0.6" />
+      <circle cx="245" cy="152" r="7" fill="url(#fire)" opacity="0.6" />
+
+      {/* 小径 */}
+      <path d="M 200,108 Q 195,130 200,141" stroke="#7a6a40" strokeWidth="2" fill="none" opacity="0.3" strokeDasharray="2,2" />
+      <path d="M 200,170 Q 205,185 200,207" stroke="#7a6a40" strokeWidth="2" fill="none" opacity="0.3" strokeDasharray="2,2" />
+
+      {/* 烟雾从大殿升起 */}
+      <ellipse cx="200" cy="120" rx="6" ry="10" fill="#8a9a8a" opacity="0.12" />
+      <ellipse cx="195" cy="105" rx="8" ry="6" fill="#8a9a8a" opacity="0.08" />
+
+      {/* 岩石点缀 */}
+      <ellipse cx="45" cy="200" rx="6" ry="3" fill="#5a5040" opacity="0.6" />
+      <ellipse cx="360" cy="195" rx="5" ry="2.5" fill="#5a5040" opacity="0.6" />
+      <ellipse cx="110" cy="210" rx="4" ry="2" fill="#5a5040" opacity="0.5" />
+    </svg>
+  );
+}

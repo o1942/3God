@@ -3,7 +3,7 @@ import type { BuildingType } from '../game/types';
 import { BUILDING_CONFIGS } from '../game/config';
 import { computeBuildSpeed, useGame } from '../store/gameStore';
 import { BuildingDetailPanel } from './BuildingDetailPanel';
-import { BUILDING_ART, WallRing } from '../game/buildingArt';
+import { BUILDING_ART, WallRing, VillageSceneArt } from '../game/buildingArt';
 
 // 城镇地图：每个建筑在部落航拍图上的固定位置（百分比，基于容器中心点）
 // 坐标对应图中帐篷 / 中心大厅 / 城墙的实际位置
@@ -76,12 +76,7 @@ export function BuildingView() {
         {/* 部落实景地图 */}
         <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-2 border-stone-400 shadow-lg bg-stone-800">
           {/* 背景图 */}
-          <img
-            src="./village-map.jpg"
-            alt="部落全貌"
-            className="absolute inset-0 w-full h-full object-cover select-none"
-            draggable={false}
-          />
+          <VillageSceneArt className="absolute inset-0 w-full h-full select-none" />
           {/* 未开发时的暗色蒙层：建筑越多越明亮 */}
           <div
             className="absolute inset-0 bg-stone-900 transition-opacity duration-700 pointer-events-none"

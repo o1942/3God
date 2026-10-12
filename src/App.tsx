@@ -74,18 +74,13 @@ function App() {
     }
   }, [isLoggedIn]);
 
-  // 启动时检测离线收益
-  useEffect(() => {
-    checkOffline();
-  }, [checkOffline]);
-
   // 主循环 tick
   useEffect(() => {
     const id = setInterval(tick, 500);
     return () => clearInterval(id);
   }, [tick]);
 
-  // 页面可见性变化时更新 lastSeen
+  // 页面可见性变化时结算离线收益（切回标签页）
   useEffect(() => {
     const handler = () => {
       if (!document.hidden) {

@@ -682,10 +682,14 @@ export const useGame = create<GameStore>((set, get) => ({
       toast.success(`欢迎，${name}！`);
       requestNotificationPermission();
 
+      // 离线收益结算：必须在村庄数据（本地或远端）最终确定后执行。
+      // checkOfflineEarnings 依 lastSeen 计算，结算后 lastSeen 立即刷新，故重复调用是幂等的。
+      const settleOffline = () => get().checkOfflineEarnings();
+
       // 异步：从 Supabase 拉取最新远端存档，覆盖本地
       if (isSupabaseConfigured) {
         downloadVillage(name).then((remote) => {
-          if (!remote) return;
+          if (!remote) { settleOffline(); return; }
           const cur = get().village;
           // 远端更新时间 > 本地 lastTick 才覆盖
           const remoteTs = remote.lastTick || remote.lastSeen || 0;
@@ -712,7 +716,8 @@ export const useGame = create<GameStore>((set, get) => ({
             saveVillageLocal(v);
           }
           notifyIncoming(merged);
-        });
+          settleOffline();
+        }).catch(() => settleOffline());
         // 订阅远端变更（多端实时同步 + 被攻击通知）
         // subscribeVillage 现在是 async（动态加载 supabase），不阻塞登录流程
         subscribeVillage(name, (remoteV) => {
@@ -742,6 +747,9 @@ export const useGame = create<GameStore>((set, get) => ({
           }
         });
         get().refreshLeaderboard();
+      } else {
+        // 纯本地模式：直接按本地存档结算离线收益
+        settleOffline();
       }
       return null;
     } catch (e: any) {

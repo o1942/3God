@@ -335,6 +335,8 @@ type GameStore = {
   // 登录状态
   isLoggedIn: boolean;
   isLoggingIn: boolean;
+  // 是否已完成登录时的云端存档拉取（用于避免用本地空白存档过早判定部落选择）
+  remoteSynced: boolean;
   registeredPlayers: string[];
   onlinePlayers: string[];
   // 登录/登出
@@ -617,6 +619,7 @@ export const useGame = create<GameStore>((set, get) => ({
   seasonEndReport: null,
   isLoggedIn: false,
   isLoggingIn: false,
+  remoteSynced: true,
   registeredPlayers: getRegisteredPlayers(),
   onlinePlayers: [],
   leaderboard: [],
@@ -676,6 +679,8 @@ export const useGame = create<GameStore>((set, get) => ({
         pvpReports: savedPvpReports,
         isLoggedIn: true,
         isLoggingIn: false,
+        // 无云端时无需等待；有云端时置 false，待拉取完成后才允许判定部落选择
+        remoteSynced: !isSupabaseConfigured,
         registeredPlayers: getRegisteredPlayers(),
         offlineReport: null,
       });
@@ -689,7 +694,7 @@ export const useGame = create<GameStore>((set, get) => ({
       // 异步：从 Supabase 拉取最新远端存档，覆盖本地
       if (isSupabaseConfigured) {
         downloadVillage(name).then((remote) => {
-          if (!remote) return;
+          if (!remote) { set({ remoteSynced: true }); return; }
           const cur = get().village;
           // 远端更新时间 > 本地 lastTick 才覆盖
           const remoteTs = remote.lastTick || remote.lastSeen || 0;
@@ -725,7 +730,8 @@ export const useGame = create<GameStore>((set, get) => ({
             saveVillageLocal(v);
           }
           notifyIncoming(merged);
-        });
+          set({ remoteSynced: true });
+        }).catch(() => set({ remoteSynced: true }));
         // 订阅远端变更（多端实时同步 + 被攻击通知）
         // subscribeVillage 现在是 async（动态加载 supabase），不阻塞登录流程
         subscribeVillage(name, (remoteV) => {
@@ -743,6 +749,12 @@ export const useGame = create<GameStore>((set, get) => ({
           remoteV.lastTick = Date.now();
           remoteV.incomingAttacks = merged;
           remoteV.completedQuests = mergedQuests;
+          // 旧存档无 tribeChosen：视为已选定，避免多端推送把已选部落重置为「未选」
+          remoteV.tribeChosen = (remoteV as Partial<VillageState>).tribeChosen ?? true;
+          if (cur.tribeChosen && !remoteV.tribeChosen) {
+            remoteV.tribe = cur.tribe;
+            remoteV.tribeChosen = true;
+          }
           set({ village: remoteV, completedQuests: mergedQuests });
           // 只写本地，不再上传（避免回环）
           saveVillageLocal(remoteV);
@@ -771,7 +783,7 @@ export const useGame = create<GameStore>((set, get) => ({
     }
     localStorage.removeItem(LAST_PLAYER_KEY);
     notifiedIncoming.clear();
-    set({ village: createInitialVillage(), completedQuests: [], isLoggedIn: false, battleReports: [], pvpReports: [], offlineReport: null, seasonEndReport: null, onlinePlayers: [], leaderboard: [] });
+    set({ village: createInitialVillage(), completedQuests: [], isLoggedIn: false, remoteSynced: true, battleReports: [], pvpReports: [], offlineReport: null, seasonEndReport: null, onlinePlayers: [], leaderboard: [] });
   },
 
   setTribe: (tribe) => {

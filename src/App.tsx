@@ -40,6 +40,7 @@ function App() {
   const logout = useGame((s) => s.logout);
   const isLoggedIn = useGame((s) => s.isLoggedIn);
   const tribeChosen = useGame((s) => s.village.tribeChosen);
+  const remoteSynced = useGame((s) => s.remoteSynced);
   const checkOffline = useGame((s) => s.checkOfflineEarnings);
   const queue = useGame((s) => s.village.buildQueue);
   const trainQueue = useGame((s) => s.village.trainQueue);
@@ -63,12 +64,11 @@ function App() {
   // 部落选择：登录后如未选部落则需选择
   const [showTribeSelect, setShowTribeSelect] = useState(false);
 
-  // 部落选择：登录后若该账号尚未确定部落（注册时选定，随存档同步）则需选择
+  // 部落选择：仅在「已登录 + 云端存档已就绪 + 账号未确定部落」时弹出。
+  // 必须等云端拉取完成，否则新设备会用本地空白存档误判为"未选部落"而错误弹窗。
   useEffect(() => {
-    if (isLoggedIn && !tribeChosen) {
-      setShowTribeSelect(true);
-    }
-  }, [isLoggedIn, tribeChosen]);
+    setShowTribeSelect(isLoggedIn && remoteSynced && !tribeChosen);
+  }, [isLoggedIn, remoteSynced, tribeChosen]);
 
   // 主循环 tick
   useEffect(() => {

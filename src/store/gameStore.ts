@@ -679,17 +679,17 @@ export const useGame = create<GameStore>((set, get) => ({
         registeredPlayers: getRegisteredPlayers(),
         offlineReport: null,
       });
+      // 离线收益结算：必须在此同步执行。
+      // 主循环 tick 每 500ms 会把 lastSeen 刷新为当前时间；若把结算放到异步的远端拉取回调里，
+      // 结算时 lastSeen 已被覆盖，离线时长会被算成 0，导致「离线后资源不增长」。
+      get().checkOfflineEarnings();
       toast.success(`欢迎，${name}！`);
       requestNotificationPermission();
-
-      // 离线收益结算：必须在村庄数据（本地或远端）最终确定后执行。
-      // checkOfflineEarnings 依 lastSeen 计算，结算后 lastSeen 立即刷新，故重复调用是幂等的。
-      const settleOffline = () => get().checkOfflineEarnings();
 
       // 异步：从 Supabase 拉取最新远端存档，覆盖本地
       if (isSupabaseConfigured) {
         downloadVillage(name).then((remote) => {
-          if (!remote) { settleOffline(); return; }
+          if (!remote) return;
           const cur = get().village;
           // 远端更新时间 > 本地 lastTick 才覆盖
           const remoteTs = remote.lastTick || remote.lastSeen || 0;
@@ -710,14 +710,15 @@ export const useGame = create<GameStore>((set, get) => ({
             set({ village: remote, completedQuests: mergedQuests });
             // 只写本地，避免立即回环上传
             saveVillageLocal(remote);
+            // 新设备本地无存档：采用远端村庄后，按其 lastSeen 结算离线收益
+            get().checkOfflineEarnings();
           } else {
             const v = { ...cur, incomingAttacks: merged, completedQuests: mergedQuests };
             set({ village: v, completedQuests: mergedQuests });
             saveVillageLocal(v);
           }
           notifyIncoming(merged);
-          settleOffline();
-        }).catch(() => settleOffline());
+        });
         // 订阅远端变更（多端实时同步 + 被攻击通知）
         // subscribeVillage 现在是 async（动态加载 supabase），不阻塞登录流程
         subscribeVillage(name, (remoteV) => {
@@ -747,9 +748,6 @@ export const useGame = create<GameStore>((set, get) => ({
           }
         });
         get().refreshLeaderboard();
-      } else {
-        // 纯本地模式：直接按本地存档结算离线收益
-        settleOffline();
       }
       return null;
     } catch (e: any) {
@@ -1998,6 +1996,7 @@ export const useGame = create<GameStore>((set, get) => ({
       offlineSeconds: Math.floor(offlineMs / 1000),
       gatheredResources: actualAdd,
       patrolEvent,
+      atCapacity: (['wood', 'clay', 'iron', 'crop'] as const).some((k) => v.resources[k] >= cap[k] - 1),
       at: now,
     };
 

@@ -60,7 +60,9 @@ export function OfflineReportLayer() {
               ))}
             </div>
           ) : (
-            <div className="text-center text-xs text-text-muted">资源已满，无法继续累积</div>
+            <div className="text-center text-xs text-text-muted">
+              {report.atCapacity ? '资源已满，无法继续累积' : '离线时间较短，产出有限'}
+            </div>
           )}
         </div>
 

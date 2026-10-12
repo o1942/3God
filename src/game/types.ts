@@ -194,6 +194,7 @@ export type OfflineReport = {
   offlineSeconds: number;
   gatheredResources: ResourceCost;
   patrolEvent: { raidersRepelled: number; cropSaved: number } | null;
+  atCapacity: boolean; // 结算时是否有资源已达容量上限（用于提示文案）
   at: number;
 };
 

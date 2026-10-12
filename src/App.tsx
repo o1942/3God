@@ -33,14 +33,13 @@ import { useGame, computePower } from './store/gameStore';
 
 type Tab = 'fields' | 'buildings';
 
-const TRIBE_SELECTED_KEY = 'travian-tribe-selected-v1';
-
 function App() {
   const tick = useGame((s) => s.tick);
   const reset = useGame((s) => s.reset);
   const setTribe = useGame((s) => s.setTribe);
   const logout = useGame((s) => s.logout);
   const isLoggedIn = useGame((s) => s.isLoggedIn);
+  const tribeChosen = useGame((s) => s.village.tribeChosen);
   const checkOffline = useGame((s) => s.checkOfflineEarnings);
   const queue = useGame((s) => s.village.buildQueue);
   const trainQueue = useGame((s) => s.village.trainQueue);
@@ -64,15 +63,12 @@ function App() {
   // 部落选择：登录后如未选部落则需选择
   const [showTribeSelect, setShowTribeSelect] = useState(false);
 
-  // 登录后检查是否已选部落
+  // 部落选择：登录后若该账号尚未确定部落（注册时选定，随存档同步）则需选择
   useEffect(() => {
-    if (isLoggedIn) {
-      const tribeKey = `${TRIBE_SELECTED_KEY}-${useGame.getState().village.playerName}`;
-      if (!localStorage.getItem(tribeKey)) {
-        setShowTribeSelect(true);
-      }
+    if (isLoggedIn && !tribeChosen) {
+      setShowTribeSelect(true);
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, tribeChosen]);
 
   // 主循环 tick
   useEffect(() => {
@@ -150,10 +146,8 @@ function App() {
   // 设置面板：重置存档 / 登出
   const handleReset = () => {
     if (confirm('重置存档？所有进度将丢失，需重新选择部落')) {
-      localStorage.removeItem(`${TRIBE_SELECTED_KEY}-${playerName}`);
       reset();
       setShowSettings(false);
-      setShowTribeSelect(true);
     }
   };
   const handleLogout = () => {
@@ -366,13 +360,11 @@ function App() {
         {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} onReset={handleReset} onLogout={handleLogout} />}
       </Suspense>
 
-      {/* 部落选择浮层 */}
+      {/* 部落选择浮层（仅注册后首次进入时出现，选定即锁定在该账号上） */}
       {showTribeSelect && (
         <TribeSelectOverlay
           onSelect={(t) => {
             setTribe(t);
-            const pn = useGame.getState().village.playerName;
-            localStorage.setItem(`${TRIBE_SELECTED_KEY}-${pn}`, t);
             setShowTribeSelect(false);
           }}
         />
@@ -390,7 +382,7 @@ function TribeSelectOverlay({ onSelect }: { onSelect: (t: TribeType) => void }) 
       <div className="card-std border-2 border-pop rounded-2xl p-5 max-w-2xl w-full anim-battle-card" style={{ boxShadow: '0 0 40px rgba(201,136,42,0.3)' }}>
         <h2 className="text-2xl font-bold tracking-wide text-center text-pop mb-1">🏯 涿鹿风云</h2>
         <p className="text-center text-text-secondary text-sm mb-1">上古洪荒，三大部落争霸天下</p>
-        <p className="text-center text-text-muted text-xs mb-4">选择你的部落，开启洪荒征程</p>
+        <p className="text-center text-text-muted text-xs mb-4">首次进入 · 选择你的部落（将绑定到本账号）</p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {TRIBE_ORDER.map((id) => {

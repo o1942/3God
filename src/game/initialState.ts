@@ -120,6 +120,7 @@ export function createInitialVillage(tribe: TribeType = DEFAULT_TRIBE): VillageS
   return {
     playerName: '',
     tribe,
+    tribeChosen: false,
     resources: { ...INITIAL_RESOURCES },
     fields: {
       woodcutter: [...INITIAL_FIELDS.woodcutter],

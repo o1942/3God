@@ -707,6 +707,13 @@ export const useGame = create<GameStore>((set, get) => ({
             remote.lastTick = Date.now();
             remote.incomingAttacks = merged;
             remote.completedQuests = mergedQuests;
+            // 旧存档无 tribeChosen：视为已选定，避免老账号在新设备上被重新询问
+            remote.tribeChosen = (remote as Partial<VillageState>).tribeChosen ?? true;
+            // 部落已在本地确定时，不被远端默认值覆盖
+            if (cur.tribeChosen && !remote.tribeChosen) {
+              remote.tribe = cur.tribe;
+              remote.tribeChosen = true;
+            }
             set({ village: remote, completedQuests: mergedQuests });
             // 只写本地，避免立即回环上传
             saveVillageLocal(remote);
@@ -769,7 +776,7 @@ export const useGame = create<GameStore>((set, get) => ({
 
   setTribe: (tribe) => {
     set((s) => {
-      const v = { ...s.village, tribe };
+      const v = { ...s.village, tribe, tribeChosen: true };
       saveVillage(v);
       return { village: v };
     });
@@ -2171,6 +2178,8 @@ function loadVillage(playerName?: string): VillageState {
       parsed.lastSeen = parsed.lastSeen || Date.now();
       // 部落字段迁移：旧存档无 tribe，默认为黄帝部落
       parsed.tribe = parsed.tribe || 'huang';
+      // 部落选择迁移：旧存档无 tribeChosen，视为已选定（老玩家不再被重新询问）
+      parsed.tribeChosen = parsed.tribeChosen ?? true;
       return parsed;
     }
   } catch (e) {

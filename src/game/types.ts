@@ -135,6 +135,8 @@ export type VillageState = {
   playerName: string;
   // 所属部落（炎帝/黄帝/蚩尤），影响兵种名与被动加成
   tribe: TribeType;
+  // 是否已完成部落选择（注册时确定，随存档同步，选定后不再询问）
+  tribeChosen: boolean;
   resources: ResourceCost;
   fields: Record<FieldType, number[]>; // 长度 18 / 4 = 4 或 5
   buildings: Partial<Record<BuildingType, number>>;

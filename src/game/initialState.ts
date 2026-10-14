@@ -1,6 +1,7 @@
 import type { TribeType, UnitType, VillageState } from './types';
 import { CAMP_TEMPLATES, CAMP_POSITIONS, RESOURCE_NODE_TEMPLATES, RESOURCE_NODE_POSITIONS, WORLD_BOSS_CONFIG, REALM_CONFIG } from './units';
 import { createInitialSeason } from './season';
+import { createInitialDaily } from './dailyTasks';
 import { createNewbieShield } from './shield';
 import { generateNpcVillages } from './pvp';
 
@@ -144,6 +145,8 @@ export function createInitialVillage(tribe: TribeType = DEFAULT_TRIBE): VillageS
     cosmetics: ['banner_default', 'theme_default', 'frame_default'],
     equippedCosmetics: { banner: 'banner_default', theme: 'theme_default', frame: 'frame_default' },
     season: createInitialSeason(),
+    exp: 0,
+    daily: createInitialDaily(),
     shield: createNewbieShield(),
     lastTick: Date.now(),
     lastSeen: Date.now(),

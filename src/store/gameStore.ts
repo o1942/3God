@@ -5,6 +5,8 @@ import { SPEED_MULTIPLIER, createInitialVillage } from '../game/initialState';
 import { QUESTS, buildQuestContext } from '../game/quests';
 import { UNIT_CONFIGS, UNIT_ORDER, aggregateArmy, aggregateRaiders, calcMarchTime, computeUpkeep, FORMATIONS, getUnitDisplay, simulateBattle, CAMP_TEMPLATES, WORLD_BOSS_CONFIG, REALM_CONFIG, RAIDER_CONFIGS, GRID_SIZE } from '../game/units';
 import { OFFLINE_CAP_MS, OFFLINE_THRESHOLD_MS, SEASON_MILESTONES_BY_POINTS, SEASON_POINT_RULES, checkSeasonRoll } from '../game/season';
+import { XP_RULES, resolveLevel } from '../game/level';
+import { DAILY_BONUS_TIERS, DAILY_TASKS, createInitialDaily, todayKey, type DailyMetric, type DailyState, type DailyTaskId } from '../game/dailyTasks';
 import { TRIBE_BONUS } from '../game/tribes';
 import { ACCEL_COST_JADE, ACCEL_RESET_INTERVAL_MS, DAILY_ACCEL_LIMIT, getCosmetic } from '../game/cosmetics';
 import { TECH_CONFIGS, getAttackTechMultiplier, getBuildSpeedMultiplier, getCapacityTechMultiplier, getDefenseTechMultiplier, getMarchSpeedMultiplier, getResourceTechBonus, getScoutCostMultiplier, getTrainSpeedMultiplier } from '../game/tech';
@@ -466,6 +468,8 @@ function checkQuests(set: (fn: (s: GameStore) => Partial<GameStore>) => void, vi
     v.jade += totalJade;
     // 任务完成加赛季积分
     v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.questComplete * newlyCompleted.length };
+    // 任务完成加经验
+    grantExp(v, XP_RULES.questComplete * newlyCompleted.length);
     // 已完成任务随存档同步（跨设备一致，避免换设备重复发放奖励）
     const allCompleted = [...completed, ...newlyCompleted];
     v.completedQuests = allCompleted;
@@ -476,6 +480,97 @@ function checkQuests(set: (fn: (s: GameStore) => Partial<GameStore>) => void, vi
       completedQuests: allCompleted,
     }));
   }
+}
+
+// ============== 经验与等级 ==============
+
+// 发放经验（直接修改传入的 v）。跨过等级线时提示升阶
+function grantExp(v: VillageState, amount: number) {
+  if (!amount || amount <= 0) return;
+  const before = resolveLevel(v.exp).level;
+  v.exp = (v.exp || 0) + amount;
+  const after = resolveLevel(v.exp);
+  if (after.level > before) {
+    toast.success(`🎖️ 等级提升 Lv${before} → Lv${after.level}！`);
+    playSound('level_up');
+    pushNotification('🎖️ 等级提升', `已升至 Lv${after.level}`);
+  }
+}
+
+// 推进每日任务进度，并自动结算已达成任务的奖励（含额外加奖）
+function bumpDaily(v: VillageState, metric: DailyMetric, amount = 1) {
+  if (!amount || amount <= 0) return;
+  const base = v.daily || createInitialDaily();
+  const daily: DailyState = { ...base, progress: { ...base.progress } };
+  daily.progress[metric] = (daily.progress[metric] || 0) + amount;
+
+  const claimed = [...daily.claimed];
+  const bonusClaimed = [...daily.bonusClaimed];
+  // 任务奖励按固定顺序结算，保证「完成数量」与加奖档位判断一致
+  for (const t of DAILY_TASKS) {
+    if (claimed.includes(t.id)) continue;
+    if ((daily.progress[t.metric] || 0) >= t.target) {
+      claimed.push(t.id);
+      toast.success(`✅ 每日任务：${t.title} +${t.xp} 经验`);
+      playSound('quest_complete');
+      grantExp(v, t.xp);
+    }
+  }
+  for (const tier of DAILY_BONUS_TIERS) {
+    if (bonusClaimed.includes(tier.need)) continue;
+    if (claimed.length >= tier.need) {
+      bonusClaimed.push(tier.need);
+      toast.success(`🎁 每日加奖：${tier.label} +${tier.xp} 经验`);
+      playSound('level_up');
+      grantExp(v, tier.xp);
+    }
+  }
+  daily.claimed = claimed;
+  daily.bonusClaimed = bonusClaimed;
+  v.daily = daily;
+}
+
+// 跨自然日则重置每日任务
+function rollDaily(v: VillageState) {
+  const today = todayKey();
+  if (!v.daily || v.daily.date !== today) {
+    v.daily = createInitialDaily();
+    return true;
+  }
+  return false;
+}
+
+// 合并本地与远端的每日任务状态：同一天取进度较大值 + 已领奖励取并集（避免多端来回切换丢进度/重复发奖）
+function mergeDaily(local: DailyState | undefined, remote: DailyState | undefined): DailyState {
+  if (!local) return remote || createInitialDaily();
+  if (!remote) return local;
+  if (local.date !== remote.date) return local.date > remote.date ? local : remote;
+  const progress: Partial<Record<DailyMetric, number>> = { ...local.progress };
+  for (const k of Object.keys(remote.progress || {}) as DailyMetric[]) {
+    progress[k] = Math.max(progress[k] || 0, remote.progress?.[k] || 0);
+  }
+  return {
+    date: local.date,
+    progress,
+    claimed: Array.from(new Set([...local.claimed, ...remote.claimed])) as DailyTaskId[],
+    bonusClaimed: Array.from(new Set([...local.bonusClaimed, ...remote.bonusClaimed])),
+  };
+}
+
+// 把远端存档的新字段与本地合并（经验只增不减，避免多端切换把经验回退）
+function mergeProgressFields(local: VillageState, remote: VillageState) {
+  remote.exp = Math.max(remote.exp || 0, local.exp || 0);
+  remote.daily = mergeDaily(local.daily, remote.daily);
+  return remote;
+}
+
+// 补齐远端存档缺失的新字段（远端数据未经 loadVillage 迁移）
+function normalizeRemoteVillage(remote: VillageState): VillageState {
+  const r = remote as Partial<VillageState>;
+  const out = remote as VillageState;
+  out.exp = r.exp ?? 0;
+  out.daily = r.daily ?? createInitialDaily();
+  return out;
 }
 
 // ============== 跨玩家：真实玩家出征结算 ==============
@@ -574,6 +669,8 @@ async function resolveRealAttack(m: MarchMission) {
       };
       if (result.win) {
         vv.season = { ...vv.season, points: vv.season.points + SEASON_POINT_RULES.battleWin };
+        grantExp(vv, XP_RULES.battleWin);
+        bumpDaily(vv, 'battlesWon');
       }
     }
     saveVillage(vv);
@@ -693,8 +790,9 @@ export const useGame = create<GameStore>((set, get) => ({
 
       // 异步：从 Supabase 拉取最新远端存档，覆盖本地
       if (isSupabaseConfigured) {
-        downloadVillage(name).then((remote) => {
-          if (!remote) { set({ remoteSynced: true }); return; }
+        downloadVillage(name).then((remoteRaw) => {
+          if (!remoteRaw) { set({ remoteSynced: true }); return; }
+          const remote = normalizeRemoteVillage(remoteRaw);
           const cur = get().village;
           // 远端更新时间 > 本地 lastTick 才覆盖
           const remoteTs = remote.lastTick || remote.lastSeen || 0;
@@ -712,6 +810,8 @@ export const useGame = create<GameStore>((set, get) => ({
             remote.lastTick = Date.now();
             remote.incomingAttacks = merged;
             remote.completedQuests = mergedQuests;
+            // 经验/每日任务与本地合并（远端时间戳较旧时也不能让经验倒退）
+            mergeProgressFields(cur, remote);
             // 旧存档无 tribeChosen：视为已选定，避免老账号在新设备上被重新询问
             remote.tribeChosen = (remote as Partial<VillageState>).tribeChosen ?? true;
             // 部落已在本地确定时，不被远端默认值覆盖
@@ -734,8 +834,9 @@ export const useGame = create<GameStore>((set, get) => ({
         }).catch(() => set({ remoteSynced: true }));
         // 订阅远端变更（多端实时同步 + 被攻击通知）
         // subscribeVillage 现在是 async（动态加载 supabase），不阻塞登录流程
-        subscribeVillage(name, (remoteV) => {
+        subscribeVillage(name, (remoteRawV) => {
           if (!get().isLoggedIn) return;
+          const remoteV = normalizeRemoteVillage(remoteRawV);
           const cur = get().village;
           // 远端推送代表另一端刚写入的最新状态，直接采用；来袭战报按并集合并
           const merged = mergeIncoming(cur.incomingAttacks, remoteV.incomingAttacks);
@@ -749,6 +850,8 @@ export const useGame = create<GameStore>((set, get) => ({
           remoteV.lastTick = Date.now();
           remoteV.incomingAttacks = merged;
           remoteV.completedQuests = mergedQuests;
+          // 经验/每日任务与本地合并
+          mergeProgressFields(cur, remoteV);
           // 旧存档无 tribeChosen：视为已选定，避免多端推送把已选部落重置为「未选」
           remoteV.tribeChosen = (remoteV as Partial<VillageState>).tribeChosen ?? true;
           if (cur.tribeChosen && !remoteV.tribeChosen) {
@@ -887,6 +990,8 @@ export const useGame = create<GameStore>((set, get) => ({
           v.techLevels = { ...v.techLevels, [task.tech]: task.level };
           // 研发完成加赛季积分
           v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.researchComplete };
+          grantExp(v, XP_RULES.researchComplete);
+          bumpDaily(v, 'researchDone');
           toast.success(`📚 研发完成：${cfg.emoji} ${cfg.name} Lv${task.level}`);
           playSound('research');
         } else {
@@ -1023,6 +1128,8 @@ export const useGame = create<GameStore>((set, get) => ({
                     crop: v.resources.crop + reward.crop,
                   };
                   v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.battleWin * 3 };
+                  grantExp(v, XP_RULES.bossDefeat);
+                  bumpDaily(v, 'battlesWon');
                   const newCamps2 = { ...v.camps };
                   newCamps2[m.campId] = {
                     ...camp,
@@ -1114,6 +1221,8 @@ export const useGame = create<GameStore>((set, get) => ({
                     crop: v.resources.crop + reward.crop,
                   };
                   v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.battleWin };
+                  grantExp(v, XP_RULES.battleWin);
+                  bumpDaily(v, 'battlesWon');
                   toast.success(`🏹 ${camp.name} 大捷！获得战利品`);
                   playSound('battle_win');
                 } else {
@@ -1189,6 +1298,8 @@ export const useGame = create<GameStore>((set, get) => ({
                     crop: v.resources.crop + result.plundered.crop,
                   };
                   v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.battleWin };
+                  grantExp(v, XP_RULES.battleWin);
+                  bumpDaily(v, 'battlesWon');
                   toast.success(`⚔️ 攻破 ${npc.name}！掠夺大量资源`);
                   playSound('battle_win');
                 } else {
@@ -1338,6 +1449,11 @@ export const useGame = create<GameStore>((set, get) => ({
         v.accelResetAt = now + ACCEL_RESET_INTERVAL_MS;
       }
 
+      // 每日任务跨日重置
+      if (rollDaily(v)) {
+        toast.info('🌅 新的一天，每日任务已重置');
+      }
+
       // 赛季滚动检查
       const rolledSeason = checkSeasonRoll(v.season);
       if (rolledSeason !== v.season) {
@@ -1388,6 +1504,8 @@ export const useGame = create<GameStore>((set, get) => ({
     v.buildQueue = [...v.buildQueue, task];
     // 资源田升级加赛季积分
     v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.fieldUpgrade };
+    grantExp(v, XP_RULES.fieldUpgrade(nextLv));
+    bumpDaily(v, 'fieldUpgrades');
     saveVillage(v);
     set({ village: v });
     playSound('build');
@@ -1422,6 +1540,8 @@ export const useGame = create<GameStore>((set, get) => ({
     v.buildQueue = [...v.buildQueue, task];
     // 建筑升级加赛季积分
     v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.buildingUpgrade };
+    grantExp(v, XP_RULES.buildingUpgrade(nextLv));
+    bumpDaily(v, 'buildingUpgrades');
     saveVillage(v);
     set({ village: v });
     playSound('build');
@@ -1523,6 +1643,8 @@ export const useGame = create<GameStore>((set, get) => ({
     v.trainQueue = [...v.trainQueue, task];
     // 训练士兵加赛季积分
     v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.trainUnit * count };
+    grantExp(v, XP_RULES.trainUnit * count);
+    bumpDaily(v, 'unitsTrained', count);
     saveVillage(v);
     set({ village: v });
     const u = getUnitDisplay(v.tribe, unit);
@@ -2183,6 +2305,9 @@ function loadVillage(playerName?: string): VillageState {
         ? parsed.players
         : createInitialVillage().players;
       parsed.season = parsed.season || createInitialVillage().season;
+      // 等级与每日任务迁移：旧存档无 exp/daily
+      parsed.exp = parsed.exp ?? 0;
+      parsed.daily = parsed.daily ?? createInitialDaily();
       // 护盾迁移：旧存档无 shield，新手给 7 天保护，老存档给 1 天保护
       if (!parsed.shield) {
         parsed.shield = { type: 'newbie', expiresAt: Date.now() + 24 * 60 * 60 * 1000, cooldownUntil: 0 };

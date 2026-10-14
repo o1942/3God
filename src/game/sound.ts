@@ -30,6 +30,7 @@ type SoundType =
   | 'defense_win'
   | 'defense_lose'
   | 'quest_complete'
+  | 'level_up'
   | 'error'
   | 'coin'
   | 'notify';
@@ -95,6 +96,12 @@ const SOUND_SEQUENCES: Record<SoundType, Note[]> = {
     { freq: 784, duration: 0.08, type: 'sine', volume: 0.14, delay: 0.07 },
     { freq: 988, duration: 0.08, type: 'sine', volume: 0.14, delay: 0.14 },
     { freq: 1319, duration: 0.2, type: 'sine', volume: 0.16, delay: 0.21 },
+  ],
+  level_up: [
+    { freq: 587, duration: 0.1, type: 'sine', volume: 0.15 },
+    { freq: 740, duration: 0.1, type: 'sine', volume: 0.15, delay: 0.09 },
+    { freq: 880, duration: 0.1, type: 'sine', volume: 0.16, delay: 0.18 },
+    { freq: 1175, duration: 0.28, type: 'sine', volume: 0.18, delay: 0.27 },
   ],
   error: [
     { freq: 160, duration: 0.12, type: 'square', volume: 0.12 },

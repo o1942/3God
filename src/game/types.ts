@@ -1,5 +1,7 @@
 // 游戏核心类型定义
 
+import type { DailyState } from './dailyTasks';
+
 // 三大部落：炎帝（火德·农耕）、黄帝（土德·文明）、蚩尤（金德·勇武）
 export type TribeType = 'yan' | 'huang' | 'chi';
 
@@ -183,6 +185,10 @@ export type VillageState = {
   equippedCosmetics: Record<string, string | null>;
   // 赛季状态
   season: SeasonState;
+  // 累计经验值（等级由 exp 反解，不单独存档；上限见 MAX_LEVEL=60）
+  exp: number;
+  // 每日任务状态（跨自然日重置）
+  daily: DailyState;
   // 护盾状态：null=无护盾（可被攻击）
   shield: ShieldState | null;
   lastTick: number; // 上次资源结算的 ms timestamp

@@ -28,6 +28,7 @@ const AlliancePanel = lazy(() => import('./components/AlliancePanel').then(m => 
 const SettingsPanel = lazy(() => import('./components/SettingsPanel').then(m => ({ default: m.SettingsPanel })));
 import { SEASON_MILESTONES } from './game/season';
 import { QUESTS } from './game/quests';
+import { DAILY_TASKS } from './game/dailyTasks';
 import { TRIBE_CONFIGS, TRIBE_ORDER } from './game/tribes';
 import { useGame, computePower } from './store/gameStore';
 
@@ -47,6 +48,7 @@ function App() {
   const units = useGame((s) => s.village.units);
   const barracksLv = useGame((s) => s.village.buildings.barracks || 0);
   const completedQuests = useGame((s) => s.completedQuests);
+  const daily = useGame((s) => s.village.daily);
   const seasonPoints = useGame((s) => s.village.season.points);
   const seasonClaimed = useGame((s) => s.village.season.claimedMilestones);
   const [showBuildings, setShowBuildings] = useState(false);
@@ -103,7 +105,9 @@ function App() {
   const hasTask = queue.length > 0 || trainQueue.length > 0;
   const doneQuests = completedQuests.length;
   const totalQuests = QUESTS.length;
-  const newQuests = totalQuests - doneQuests;
+  // 未完成的主线 + 未完成的每日任务（每日任务作为持续目标计入角标）
+  const dailyRemaining = Math.max(0, DAILY_TASKS.length - (daily?.claimed?.length || 0));
+  const newQuests = (totalQuests - doneQuests) + dailyRemaining;
 
   const claimableMilestones = SEASON_MILESTONES.filter(
     (m) => seasonPoints >= m.points && !seasonClaimed.includes(m.points)

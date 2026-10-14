@@ -5,6 +5,7 @@ import { useGame } from '../store/gameStore';
 import { isMuted, setMuted } from '../game/sound';
 import { computeUpkeep } from '../game/units';
 import { isShielded, shieldRemainingMs } from '../game/shield';
+import { resolveLevel } from '../game/level';
 import { ShieldModal } from './ShieldModal';
 
 // 玩家+世界信息栏
@@ -30,6 +31,7 @@ export function PlayerWorldBar() {
   const shield = useGame((s) => s.village.shield);
   const activateShield = useGame((s) => s.activateShield);
   const jade = useGame((s) => s.village.jade);
+  const exp = useGame((s) => s.village.exp);
   const storePlayerName = useGame((s) => s.village.playerName);
   const [showShieldModal, setShowShieldModal] = useState(false);
   const [playerName, setPlayerName] = useState('酋长');
@@ -60,6 +62,10 @@ export function PlayerWorldBar() {
 
   // 计算村庄等级（建筑总等级和）
   const villageLevel = Object.values(buildings).reduce<number>((sum, lv) => sum + (lv || 0), 0);
+
+  // 玩家等级与经验进度
+  const lv = resolveLevel(exp || 0);
+  const expPct = lv.isMax ? 100 : Math.min(100, Math.round((lv.expIntoLevel / lv.expForNext) * 100));
 
   // 模拟排名（积分越高排名越靠前）
   const rank = Math.max(1, 200 - Math.floor(season.points / 10));
@@ -121,15 +127,32 @@ export function PlayerWorldBar() {
                   maxLength={12}
                 />
               ) : (
-                <button
-                  onClick={() => { setEditing('player'); setTempName(playerName); }}
-                  className="text-sm font-semibold text-text-primary hover:text-pop truncate"
-                >
-                  {playerName} <span className="text-[10px] opacity-60">✏</span>
-                </button>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <button
+                    onClick={() => { setEditing('player'); setTempName(playerName); }}
+                    className="text-sm font-semibold text-text-primary hover:text-pop truncate"
+                  >
+                    {playerName} <span className="text-[10px] opacity-60">✏</span>
+                  </button>
+                  <span className="shrink-0 text-[10px] font-bold text-amber-100 bg-pop rounded px-1.5 py-0.5 leading-none">
+                    Lv{lv.level}
+                  </span>
+                </div>
               )}
               <div className="text-[10px] text-text-muted">
-                {tribeCfg.emoji} {tribeCfg.name} · 部落 Lv{villageLevel} · 排名 #{rank}
+                {tribeCfg.emoji} {tribeCfg.name} · 部落等级 {villageLevel} · 排名 #{rank}
+              </div>
+              {/* 经验条 */}
+              <div className="mt-1 flex items-center gap-1.5 max-w-[190px]">
+                <div className="flex-1 h-1.5 rounded-full bg-bg-card border border-border overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${lv.isMax ? 'bg-emerald-500' : 'bg-pop'}`}
+                    style={{ width: `${expPct}%` }}
+                  />
+                </div>
+                <span className="text-[9px] text-text-muted tabular-nums shrink-0">
+                  {lv.isMax ? '满级' : `${lv.expIntoLevel}/${lv.expForNext}`}
+                </span>
               </div>
             </div>
           </div>

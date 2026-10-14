@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { UNIT_CONFIGS, UNIT_ORDER, COUNTER_BONUS } from '../game/units';
 import { SEASON_POINT_RULES, SEASON_LENGTH_MS } from '../game/season';
+import { MAX_LEVEL, XP_RULES } from '../game/level';
+import { DAILY_BONUS_TIERS } from '../game/dailyTasks';
 import { ACTIVE_SHIELD_OPTIONS } from '../game/shield';
 import { ACCEL_COST_JADE, DAILY_ACCEL_LIMIT, ACCEL_RATIO } from '../game/cosmetics';
 import { useGame } from '../store/gameStore';
@@ -70,6 +72,26 @@ export function SettingsPanel({
               · 城墙：每级 +{WALL_POWER_PER_LV} 战力
               <br />
               · 建筑等级和：封禅台 + 军帐 + 校场 + 城墙 的等级之和，每级 +{BUILDING_POWER_PER_LV} 战力
+            </p>
+          </Section>
+
+          {/* 等级与经验 */}
+          <Section title="🎖️ 等级与经验" desc={`经验只靠游玩积累、不可购买；满级 ${MAX_LEVEL} 级。等级由累计经验自动提升，跨设备随存档同步。`}>
+            <table className="w-full text-xs">
+              <tbody>
+                <PointRow label="升级资源田" value={`+${XP_RULES.fieldUpgrade(1)} ~ +${XP_RULES.fieldUpgrade(20)} / 级（按目标等级）`} />
+                <PointRow label="建造 / 升级建筑" value={`+${XP_RULES.buildingUpgrade(1)} ~ +${XP_RULES.buildingUpgrade(20)} / 级（按目标等级）`} />
+                <PointRow label="训练士兵" value={`+${XP_RULES.trainUnit} / 兵`} />
+                <PointRow label="完成研发" value={`+${XP_RULES.researchComplete}`} />
+                <PointRow label="战斗胜利" value={`+${XP_RULES.battleWin}`} />
+                <PointRow label="击败世界Boss / 秘境" value={`+${XP_RULES.bossDefeat}`} />
+                <PointRow label="完成主线任务" value={`+${XP_RULES.questComplete}`} />
+              </tbody>
+            </table>
+            <p className="text-[11px] text-text-muted mt-2 leading-relaxed">
+              另有<b className="text-text-primary">每日任务</b>：每天重置 5 项小目标，各自给经验；
+              完成 {DAILY_BONUS_TIERS.map((t) => t.need).join(' / ')} 项时再额外发放{' '}
+              {DAILY_BONUS_TIERS.map((t) => t.xp).join(' / ')} 经验。
             </p>
           </Section>
 

@@ -950,13 +950,15 @@ export const useGame = create<GameStore>((set, get) => ({
       }
       for (const task of completedNow) {
         applyCompletion(v, task.target, task.toLevel);
-        // 升级真正完成时才发经验（避免下单后又取消来刷经验）
+        // 升级真正完成时才发经验与赛季积分（避免下单后又取消队列来刷）
         if (task.target.kind === 'field') {
           grantExp(v, XP_RULES.fieldUpgrade(task.toLevel));
           bumpDaily(v, 'fieldUpgrades');
+          v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.fieldUpgrade };
         } else {
           grantExp(v, XP_RULES.buildingUpgrade(task.toLevel));
           bumpDaily(v, 'buildingUpgrades');
+          v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.buildingUpgrade };
         }
         toast.success(`${getTaskName(task)} 升级到 Lv${task.toLevel}`);
         playSound('build_complete');
@@ -973,9 +975,10 @@ export const useGame = create<GameStore>((set, get) => ({
         const newlyDone = expectedDone - task.done;
         if (newlyDone > 0) {
           newUnits[task.unit] = (newUnits[task.unit] || 0) + newlyDone;
-          // 每训练出一名士兵发一次经验（按实际完成数，取消队列不影响已得经验）
+          // 每训练出一名士兵发一次经验与赛季积分（按实际完成数，取消队列不影响已得）
           grantExp(v, XP_RULES.trainUnit * newlyDone);
           bumpDaily(v, 'unitsTrained', newlyDone);
+          v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.trainUnit * newlyDone };
         }
         if (expectedDone >= task.count) {
           // 完整完成
@@ -1513,8 +1516,6 @@ export const useGame = create<GameStore>((set, get) => ({
       duration,
     };
     v.buildQueue = [...v.buildQueue, task];
-    // 资源田升级加赛季积分
-    v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.fieldUpgrade };
     saveVillage(v);
     set({ village: v });
     playSound('build');
@@ -1547,8 +1548,6 @@ export const useGame = create<GameStore>((set, get) => ({
       duration,
     };
     v.buildQueue = [...v.buildQueue, task];
-    // 建筑升级加赛季积分
-    v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.buildingUpgrade };
     saveVillage(v);
     set({ village: v });
     playSound('build');
@@ -1648,8 +1647,6 @@ export const useGame = create<GameStore>((set, get) => ({
       perUnitMs,
     };
     v.trainQueue = [...v.trainQueue, task];
-    // 训练士兵加赛季积分
-    v.season = { ...v.season, points: v.season.points + SEASON_POINT_RULES.trainUnit * count };
     saveVillage(v);
     set({ village: v });
     const u = getUnitDisplay(v.tribe, unit);

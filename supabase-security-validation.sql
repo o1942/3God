@@ -66,13 +66,14 @@ declare
   -- 变更速率上限（每小时）
   v_max_res_rate numeric := 20000;       -- 单种资源每小时最多增长（Lv20 满田约 8000，留 2.5 倍余量）
   v_max_units_rate numeric := 6000;      -- 总兵力每小时最多增长（军帐 Lv20 满负荷约 3000，留 2 倍余量）
+  v_max_points_rate numeric := 3000;     -- 赛季积分每小时最多增长（大批量训练/多任务叠加的余量）
   -- 单次存档增量上限
   v_max_jade_delta numeric := 600;       -- 纹玉单次最多增加（8个任务全完成=180，赛季里程碑最高200，留足余量）
-  v_max_points_delta numeric := 800;     -- 赛季积分单次最多增加（8个任务全完成=400，含战斗胜利余量）
   v_max_unit_delta numeric := 1000;      -- 单种兵力单次最多增加（兜底，离线训练队列可能一次性完成很多）
   -- 最小容忍增量：即使时间差很短，也允许最多增长这么多（避免多端不同步/时间计算误差误伤）
   v_min_res_tolerance numeric := 5000;    -- 单种资源最小容忍增量（有天花板 16000 兜底，可放宽）
   v_min_units_tolerance numeric := 500;   -- 总兵力最小容忍增量
+  v_min_points_tolerance numeric := 3000; -- 单次存档最小积分容忍增量（覆盖一次大批量训练 1500 只 = 3000 分）
   -- 速率校验临时变量
   v_hours numeric;
   v_old_res numeric;
@@ -220,10 +221,10 @@ begin
         return '存档数据异常：纹玉增长过快';
       end if;
 
-      -- 10.4 赛季积分单次增量
+      -- 10.4 赛季积分增长速率（按时间缩放：允许离线/大批量训练后补同步，避免误伤被永久卡死）
       v_old_points := coalesce(safe_non_negative(v_old->'season'->'points'), 0);
       v_new_points := coalesce(safe_non_negative(p_data->'season'->'points'), 0);
-      if (v_new_points - v_old_points) > v_max_points_delta then
+      if (v_new_points - v_old_points) > greatest(v_max_points_rate * v_hours, v_min_points_tolerance) then
         return '存档数据异常：赛季积分增长过快';
       end if;
 

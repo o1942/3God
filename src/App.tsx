@@ -25,6 +25,7 @@ const SeasonPanel = lazy(() => import('./components/SeasonPanel').then(m => ({ d
 const EventLogPanel = lazy(() => import('./components/EventLogPanel').then(m => ({ default: m.EventLogPanel })));
 const MarketPanel = lazy(() => import('./components/MarketPanel').then(m => ({ default: m.MarketPanel })));
 const AlliancePanel = lazy(() => import('./components/AlliancePanel').then(m => ({ default: m.AlliancePanel })));
+const HeroPanel = lazy(() => import('./components/HeroPanel').then(m => ({ default: m.HeroPanel })));
 const SettingsPanel = lazy(() => import('./components/SettingsPanel').then(m => ({ default: m.SettingsPanel })));
 import { SEASON_MILESTONES } from './game/season';
 import { QUESTS } from './game/quests';
@@ -61,6 +62,7 @@ function App() {
   const [showEventLog, setShowEventLog] = useState(false);
   const [showMarket, setShowMarket] = useState(false);
   const [showAlliance, setShowAlliance] = useState(false);
+  const [showHeroes, setShowHeroes] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('fields');
   // 部落选择：登录后如未选部落则需选择
@@ -314,6 +316,7 @@ function App() {
         <NavBtn icon="🗺️" label="地图" onClick={() => setShowMap(true)} />
         <NavBtn icon="🏪" label="集市" onClick={() => setShowMarket(true)} />
         <NavBtn icon="🛡️" label="联盟" onClick={() => setShowAlliance(true)} />
+        <NavBtn icon="🗿" label="名册" onClick={() => setShowHeroes(true)} />
         <NavBtn
           icon="🌐"
           label="全服"
@@ -361,6 +364,7 @@ function App() {
         {showEventLog && <EventLogPanel onClose={() => setShowEventLog(false)} />}
         {showMarket && <MarketPanel onClose={() => setShowMarket(false)} />}
         {showAlliance && <AlliancePanel onClose={() => setShowAlliance(false)} />}
+        {showHeroes && <HeroPanel onClose={() => setShowHeroes(false)} />}
         {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} onReset={handleReset} onLogout={handleLogout} />}
       </Suspense>
 

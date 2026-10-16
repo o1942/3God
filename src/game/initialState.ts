@@ -4,9 +4,21 @@ import { createInitialSeason } from './season';
 import { createInitialDaily } from './dailyTasks';
 import { createNewbieShield } from './shield';
 import { generateNpcVillages } from './pvp';
+import { HERO_ORDER } from './heroes';
 
 // 默认部落（黄帝，华夏正统）
 export const DEFAULT_TRIBE: TribeType = 'huang';
+
+// 初始英雄名册：9 位全部预置（MVP）
+// 默认主将：玩家部落下的 SSR 英雄
+function createInitialHeroes(tribe: TribeType): VillageState['heroes'] {
+  const defaultGeneralId = tribe === 'yan' ? 'shennong' : tribe === 'huang' ? 'xuanyuan' : 'chiyou';
+  return HERO_ORDER.map((id) => ({
+    id,
+    acquired: true,
+    isGeneral: id === defaultGeneralId,
+  }));
+}
 
 // 空兵种表
 export const EMPTY_UNITS: Record<UnitType, number> = {
@@ -148,6 +160,7 @@ export function createInitialVillage(tribe: TribeType = DEFAULT_TRIBE): VillageS
     exp: 0,
     daily: createInitialDaily(),
     shield: createNewbieShield(),
+    heroes: createInitialHeroes(tribe),
     lastTick: Date.now(),
     lastSeen: Date.now(),
   };

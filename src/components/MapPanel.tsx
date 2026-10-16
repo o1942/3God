@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { CampState, FormationType, NpcVillage, TribeType, UnitType } from '../game/types';
 import { CAMP_TEMPLATES, FORMATIONS, FORMATION_ORDER, GRID_SIZE, UNIT_ORDER, VILLAGE_POSITION, calcMarchTime, getRaiderConfig, getUnitDisplay, predictBattle, predictPvPBattle } from '../game/units';
 import { BUILDING_CONFIGS } from '../game/config';
-import { tribeAttackMultiplier, useGame } from '../store/gameStore';
+import { tribeAttackMultiplier, heroBattleMultipliers, useGame } from '../store/gameStore';
 import { isShielded, shieldRemainingMs } from '../game/shield';
 import { NPC_REVIVE_MS } from '../game/pvp';
 import { TRIBE_CONFIGS } from '../game/tribes';
@@ -47,8 +47,9 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
   });
   tileMap[`${VILLAGE_POSITION.x},${VILLAGE_POSITION.y}`] = { type: 'village' };
 
-  const atkMult = FORMATIONS[formation].atkMod * tribeAttackMultiplier(village);
-  const defMult = FORMATIONS[formation].defMod;
+  const hm = heroBattleMultipliers(village);
+  const atkMult = FORMATIONS[formation].atkMod * tribeAttackMultiplier(village) * hm.atk;
+  const defMult = FORMATIONS[formation].defMod * hm.def;
 
   const totalDeployed = UNIT_ORDER.reduce((s, u) => s + (deployed[u] || 0), 0);
   const rallyLv = village.buildings.rallyPoint || 0;

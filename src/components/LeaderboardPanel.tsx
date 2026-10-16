@@ -4,7 +4,7 @@ import { FORMATIONS, FORMATION_ORDER, UNIT_ORDER, getUnitDisplay, predictPvPBatt
 import { BUILDING_CONFIGS } from '../game/config';
 import { TRIBE_CONFIGS } from '../game/tribes';
 import { getScoutCostMultiplier } from '../game/tech';
-import { computePower, tribeAttackMultiplier, useGame } from '../store/gameStore';
+import { computePower, tribeAttackMultiplier, heroBattleMultipliers, useGame } from '../store/gameStore';
 
 type SortKey = 'power' | 'points';
 
@@ -39,7 +39,9 @@ export function LeaderboardPanel({ onClose }: { onClose: () => void }) {
   const myIndex = rows.findIndex((r) => r.playerName === village.playerName);
   const myRow = myIndex >= 0 ? rows[myIndex] : null;
 
-  const atkMult = FORMATIONS[formation].atkMod * tribeAttackMultiplier(village);
+  const hm = heroBattleMultipliers(village);
+  const atkMult = FORMATIONS[formation].atkMod * tribeAttackMultiplier(village) * hm.atk;
+  const defMult = FORMATIONS[formation].defMod * hm.def;
 
   const resetDeploy = () => setDeployed({});
 
@@ -105,7 +107,7 @@ export function LeaderboardPanel({ onClose }: { onClose: () => void }) {
                 const open = expanded === r.playerName;
                 const t = TRIBE_CONFIGS[(r.tribe as TribeType)] || TRIBE_CONFIGS.huang;
                 const pred = open && totalDeployed > 0
-                  ? predictPvPBattle(deployed, village.tribe, r.units as Partial<Record<UnitType, number>>, (r.tribe as TribeType), r.wallLevel, atkMult, FORMATIONS[formation].defMod)
+                  ? predictPvPBattle(deployed, village.tribe, r.units as Partial<Record<UnitType, number>>, (r.tribe as TribeType), r.wallLevel, atkMult, defMult)
                   : null;
                 return (
                   <div

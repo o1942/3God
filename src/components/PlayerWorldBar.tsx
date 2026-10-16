@@ -6,6 +6,8 @@ import { isMuted, setMuted } from '../game/sound';
 import { computeUpkeep } from '../game/units';
 import { isShielded, shieldRemainingMs } from '../game/shield';
 import { resolveLevel } from '../game/level';
+import { HERO_CONFIGS } from '../game/heroes';
+import { HeroBadge } from './HeroBadge';
 import { ShieldModal } from './ShieldModal';
 
 // 玩家+世界信息栏
@@ -32,6 +34,7 @@ export function PlayerWorldBar() {
   const activateShield = useGame((s) => s.activateShield);
   const jade = useGame((s) => s.village.jade);
   const exp = useGame((s) => s.village.exp);
+  const heroes = useGame((s) => s.village.heroes);
   const storePlayerName = useGame((s) => s.village.playerName);
   const [showShieldModal, setShowShieldModal] = useState(false);
   const [playerName, setPlayerName] = useState('酋长');
@@ -107,8 +110,19 @@ export function PlayerWorldBar() {
         {/* 玩家信息行 */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className={`w-10 h-10 rounded-full bg-pop text-white flex items-center justify-center text-lg font-bold shrink-0 ${frameClass}`}>
+            <div className={`relative shrink-0 w-10 h-10 rounded-full bg-pop text-white flex items-center justify-center text-lg font-bold ${frameClass}`}>
               {playerName.charAt(0)}
+              {/* 主将英雄小徽章 */}
+              {(() => {
+                const gen = heroes?.find((h) => h.isGeneral);
+                if (!gen) return null;
+                const cfg = HERO_CONFIGS[gen.id];
+                return (
+                  <div className="absolute -bottom-2 -right-2 border border-amber-400 rounded-full bg-bg-card overflow-hidden shadow-sm" title={`主将：${cfg.name}`}>
+                    <HeroBadge heroId={gen.id} size={20} showRing={false} glow />
+                  </div>
+                );
+              })()}
             </div>
             {/* 装备的部落旗帜 */}
             {banner && (

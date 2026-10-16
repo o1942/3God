@@ -1,9 +1,17 @@
 // 游戏核心类型定义
 
 import type { DailyState } from './dailyTasks';
+import type { HeroId } from './heroes';
 
 // 三大部落：炎帝（火德·农耕）、黄帝（土德·文明）、蚩尤（金德·勇武）
 export type TribeType = 'yan' | 'huang' | 'chi';
+
+// 英雄状态（MVP 预置全部 9 位，不做招募）
+export type HeroState = {
+  id: HeroId;
+  acquired: boolean;  // 是否已获得（MVP 初始全 true）
+  isGeneral: boolean; // 是否为主将（同一时间只能有 1 位）
+};
 
 // 兵种类型
 export type UnitType = 'warrior' | 'archer' | 'cavalry' | 'guard';
@@ -191,6 +199,8 @@ export type VillageState = {
   daily: DailyState;
   // 护盾状态：null=无护盾（可被攻击）
   shield: ShieldState | null;
+  // 英雄名册（MVP 预置 9 位，acquired 全 true；跨部落英雄不能当主将）
+  heroes: HeroState[];
   lastTick: number; // 上次资源结算的 ms timestamp
   lastSeen: number; // 上次玩家活跃的 ms timestamp（用于离线收益结算）
   // 已完成任务 id 列表（随存档同步，避免换设备后重复触发任务奖励）

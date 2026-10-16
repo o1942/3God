@@ -7,7 +7,8 @@ import { UNIT_CONFIGS, UNIT_ORDER, aggregateArmy, aggregateRaiders, calcMarchTim
 import { OFFLINE_CAP_MS, OFFLINE_THRESHOLD_MS, SEASON_MILESTONES_BY_POINTS, SEASON_POINT_RULES, checkSeasonRoll } from '../game/season';
 import { XP_RULES, resolveLevel } from '../game/level';
 import { DAILY_BONUS_TIERS, DAILY_TASKS, createInitialDaily, todayKey, type DailyMetric, type DailyState, type DailyTaskId } from '../game/dailyTasks';
-import { TRIBE_BONUS } from '../game/tribes';
+import { HERO_CONFIGS, HERO_ORDER, heroStats, type HeroId } from '../game/heroes';
+import { TRIBE_BONUS, TRIBE_CONFIGS } from '../game/tribes';
 import { ACCEL_COST_JADE, ACCEL_RESET_INTERVAL_MS, DAILY_ACCEL_LIMIT, getCosmetic } from '../game/cosmetics';
 import { TECH_CONFIGS, getAttackTechMultiplier, getBuildSpeedMultiplier, getCapacityTechMultiplier, getDefenseTechMultiplier, getMarchSpeedMultiplier, getResourceTechBonus, getScoutCostMultiplier, getTrainSpeedMultiplier } from '../game/tech';
 import { playSound } from '../game/sound';
@@ -187,6 +188,24 @@ export function tribeAttackMultiplier(state: VillageState): number {
   return state.tribe === 'chi' ? TRIBE_BONUS.chi.unitAttack : 1;
 }
 
+// 英雄三维加成：主将全额、非主将 50%；返回 atk / def / speed 乘子（默认 1）
+export function heroBattleMultipliers(state: VillageState): { atk: number; def: number; speed: number } {
+  const heroes = state.heroes || [];
+  let atk = 1, def = 1, speed = 1;
+  for (const h of heroes) {
+    if (!h.acquired) continue;
+    const isGen = h.isGeneral;
+    const s = heroStats(h.id, state.exp, isGen);
+    // 副将额外 50%（heroStats 已处理），跨部落副将的加成无效
+    const cfg = HERO_CONFIGS[h.id];
+    if (cfg.tribe !== state.tribe) continue;
+    atk *= 1 + s.atkPct / 100;
+    def *= 1 + s.defPct / 100;
+    speed *= 1 + s.speedPct / 100;
+  }
+  return { atk, def, speed };
+}
+
 // 蚩尤部落：训练速度 +20%（即训练时间 × 1/1.2）
 export function effectiveTrainTime(state: VillageState, baseSec: number): number {
   let t = state.tribe === 'chi' ? baseSec / TRIBE_BONUS.chi.trainSpeed : baseSec;
@@ -348,6 +367,8 @@ type GameStore = {
   // 操作
   tick: () => void;
   setTribe: (tribe: TribeType) => void;
+  // 英雄名册：切换主将（跨部落英雄不可当主将，MVP 强校验）
+  setGeneral: (heroId: HeroId) => boolean;
   enqueueFieldUpgrade: (fieldType: FieldType, index: number) => void;
   enqueueBuildingUpgrade: (building: BuildingType) => void;
   cancelTask: (taskId: string) => void;
@@ -561,7 +582,29 @@ function mergeDaily(local: DailyState | undefined, remote: DailyState | undefine
 function mergeProgressFields(local: VillageState, remote: VillageState) {
   remote.exp = Math.max(remote.exp || 0, local.exp || 0);
   remote.daily = mergeDaily(local.daily, remote.daily);
+  remote.heroes = mergeHeroes(local.heroes, remote.heroes);
   return remote;
+}
+
+// 英雄合并：取数组并集，per-hero acquired=OR，isGeneral 取远端（远端通常是最新）
+function mergeHeroes(local: VillageState['heroes'], remote: VillageState['heroes']): VillageState['heroes'] {
+  const map = new Map<string, { id: string; acquired: boolean; isGeneral: boolean }>();
+  for (const h of local || []) map.set(h.id, { id: h.id, acquired: h.acquired, isGeneral: h.isGeneral });
+  for (const h of remote || []) {
+    const prev = map.get(h.id);
+    map.set(h.id, {
+      id: h.id,
+      acquired: h.acquired || prev?.acquired || false,
+      isGeneral: h.isGeneral || prev?.isGeneral || false,
+    });
+  }
+  // 防御：最多 1 位主将
+  const generals = Array.from(map.values()).filter((h) => h.isGeneral);
+  if (generals.length > 1) {
+    // 保留 remote 中第一个
+    for (let i = 1; i < generals.length; i++) generals[i].isGeneral = false;
+  }
+  return Array.from(map.values()) as VillageState['heroes'];
 }
 
 // 补齐远端存档缺失的新字段（远端数据未经 loadVillage 迁移）
@@ -570,6 +613,15 @@ function normalizeRemoteVillage(remote: VillageState): VillageState {
   const out = remote as VillageState;
   out.exp = r.exp ?? 0;
   out.daily = r.daily ?? createInitialDaily();
+  if (!out.heroes || out.heroes.length === 0) {
+    // 老存档：补齐初始 9 位
+    const tribe = r.tribe ?? 'huang';
+    out.heroes = tribe === 'yan'
+      ? HERO_ORDER.map((id) => ({ id, acquired: true, isGeneral: id === 'shennong' }))
+      : tribe === 'huang'
+        ? HERO_ORDER.map((id) => ({ id, acquired: true, isGeneral: id === 'xuanyuan' }))
+        : HERO_ORDER.map((id) => ({ id, acquired: true, isGeneral: id === 'chiyou' }));
+  }
   return out;
 }
 
@@ -619,8 +671,9 @@ async function resolveRealAttack(m: MarchMission) {
   };
 
   const form = FORMATIONS[m.formation];
-  const atkMult = form.atkMod * tribeAttackMultiplier(attacker) * getAttackTechMultiplier(attacker.techLevels || {}) * getSmithyAttackBonus(attacker);
-  const defMult = form.defMod * getDefenseTechMultiplier(attacker.techLevels || {});
+  const hm = heroBattleMultipliers(attacker);
+  const atkMult = form.atkMod * tribeAttackMultiplier(attacker) * getAttackTechMultiplier(attacker.techLevels || {}) * getSmithyAttackBonus(attacker) * hm.atk;
+  const defMult = form.defMod * getDefenseTechMultiplier(attacker.techLevels || {}) * hm.def;
   const result = resolvePvpAttack(m.units, attacker.tribe, atkMult, defMult, defVillage);
 
   // 守军损失（交由服务端按实际兵力钳制）
@@ -897,6 +950,29 @@ export const useGame = create<GameStore>((set, get) => ({
     });
   },
 
+  setGeneral: (heroId) => {
+    let ok = false;
+    set((s) => {
+      const v = s.village;
+      const cfg = HERO_CONFIGS[heroId];
+      if (!cfg) { toast.warning('未知英雄'); return s; }
+      if (!v.heroes.find((h) => h.id === heroId && h.acquired)) {
+        toast.warning('尚未获得该英雄'); return s;
+      }
+      if (cfg.tribe !== v.tribe) {
+        toast.warning(`跨部落英雄不可当主将（你是${TRIBE_CONFIGS[v.tribe].name}）`);
+        return s;
+      }
+      const heroes = v.heroes.map((h) => ({ ...h, isGeneral: h.id === heroId }));
+      const nv = { ...v, heroes };
+      saveVillage(nv);
+      ok = true;
+      toast.success(`主将已换：${cfg.name}`);
+      return { village: nv };
+    });
+    return ok;
+  },
+
   tick: () => {
     set((s) => {
       const now = Date.now();
@@ -1106,9 +1182,10 @@ export const useGame = create<GameStore>((set, get) => ({
             if (m.kind === 'attack' && camp) {
               // 战斗
               const form = FORMATIONS[m.formation];
-              // 阵型 × 部落 × 科技（强兵术/坚甲术）
-              const atkMult = form.atkMod * tribeAttackMultiplier(v) * getAttackTechMultiplier(v.techLevels || {}) * getSmithyAttackBonus(v);
-              const defMult = form.defMod * getDefenseTechMultiplier(v.techLevels || {});
+              const hm = heroBattleMultipliers(v);
+              // 阵型 × 部落 × 科技（强兵术/坚甲术） × 英雄三维
+              const atkMult = form.atkMod * tribeAttackMultiplier(v) * getAttackTechMultiplier(v.techLevels || {}) * getSmithyAttackBonus(v) * hm.atk;
+              const defMult = form.defMod * getDefenseTechMultiplier(v.techLevels || {}) * hm.def;
               const atkArmy = aggregateArmy(m.units, v.tribe, atkMult, defMult);
 
               // 世界Boss / 秘境：可多次攻击，扣血而非全灭
@@ -1283,8 +1360,9 @@ export const useGame = create<GameStore>((set, get) => ({
               const npc = v.players?.[m.campId];
               if (npc) {
                 const form = FORMATIONS[m.formation];
-                const atkMult = form.atkMod * tribeAttackMultiplier(v) * getAttackTechMultiplier(v.techLevels || {}) * getSmithyAttackBonus(v);
-                const defMult = form.defMod * getDefenseTechMultiplier(v.techLevels || {});
+                const hm = heroBattleMultipliers(v);
+                const atkMult = form.atkMod * tribeAttackMultiplier(v) * getAttackTechMultiplier(v.techLevels || {}) * getSmithyAttackBonus(v) * hm.atk;
+                const defMult = form.defMod * getDefenseTechMultiplier(v.techLevels || {}) * hm.def;
                 const result = resolvePvpAttack(m.units, v.tribe, atkMult, defMult, npc);
 
                 // 更新 NPC 战后状态
@@ -1706,7 +1784,8 @@ export const useGame = create<GameStore>((set, get) => ({
     v.units = afterDeploy;
 
     // 创建行军任务
-    const marchSec = calcMarchTime(camp.position) / getMarchSpeedMultiplier(v.techLevels || {});
+    const hmMarch = heroBattleMultipliers(v);
+    const marchSec = calcMarchTime(camp.position) / getMarchSpeedMultiplier(v.techLevels || {}) / hmMarch.speed;
     const now = Date.now();
     const mission: MarchMission = {
       id: `march-${campId}-${now}`,
@@ -1742,7 +1821,8 @@ export const useGame = create<GameStore>((set, get) => ({
     for (const u of UNIT_ORDER) afterDeploy[u] = (afterDeploy[u] || 0) - (deployed[u] || 0);
     v.units = afterDeploy;
 
-    const marchSec = calcMarchTime(camp.position) / getMarchSpeedMultiplier(v.techLevels || {});
+    const hmMarch = heroBattleMultipliers(v);
+    const marchSec = calcMarchTime(camp.position) / getMarchSpeedMultiplier(v.techLevels || {}) / hmMarch.speed;
     const now = Date.now();
     const mission: MarchMission = {
       id: `garrison-${campId}-${now}`,
@@ -1772,7 +1852,8 @@ export const useGame = create<GameStore>((set, get) => ({
     if (total <= 0) return;
 
     // 撤回行军
-    const marchSec = calcMarchTime(camp.position) / getMarchSpeedMultiplier(v.techLevels || {});
+    const hmMarch = heroBattleMultipliers(v);
+    const marchSec = calcMarchTime(camp.position) / getMarchSpeedMultiplier(v.techLevels || {}) / hmMarch.speed;
     const now = Date.now();
     const mission: MarchMission = {
       id: `recall-${campId}-${now}`,
@@ -1834,7 +1915,8 @@ export const useGame = create<GameStore>((set, get) => ({
     for (const u of UNIT_ORDER) afterDeploy[u] = (afterDeploy[u] || 0) - (deployed[u] || 0);
     v.units = afterDeploy;
 
-    const marchSec = calcMarchTime(npc.position) / getMarchSpeedMultiplier(v.techLevels || {});
+    const hmMarch = heroBattleMultipliers(v);
+    const marchSec = calcMarchTime(npc.position) / getMarchSpeedMultiplier(v.techLevels || {}) / hmMarch.speed;
     const now = Date.now();
     const mission: MarchMission = {
       id: `pvpAttack-${npcId}-${now}`,

@@ -2401,6 +2401,15 @@ function loadVillage(playerName?: string): VillageState {
       parsed.tribe = parsed.tribe || 'huang';
       // 部落选择迁移：旧存档无 tribeChosen，视为已选定（老玩家不再被重新询问）
       parsed.tribeChosen = parsed.tribeChosen ?? true;
+      // 英雄名册迁移：旧存档无 heroes，按部落补齐 9 位预置英雄 + 默认主将
+      if (!parsed.heroes || parsed.heroes.length === 0) {
+        const tribe = parsed.tribe ?? 'huang';
+        parsed.heroes = tribe === 'yan'
+          ? HERO_ORDER.map((id) => ({ id, acquired: true, isGeneral: id === 'shennong' }))
+          : tribe === 'huang'
+            ? HERO_ORDER.map((id) => ({ id, acquired: true, isGeneral: id === 'xuanyuan' }))
+            : HERO_ORDER.map((id) => ({ id, acquired: true, isGeneral: id === 'chiyou' }));
+      }
       return parsed;
     }
   } catch (e) {

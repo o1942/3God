@@ -133,6 +133,8 @@ function BuildingAction({ building, onClose }: { building: BuildingType; onClose
       return <WarehouseAction />;
     case 'granary':
       return <GranaryAction />;
+    case 'cranny':
+      return <CrannyAction />;
     case 'rallyPoint':
       return <RallyPointAction onClose={onClose} />;
     case 'barracks':
@@ -151,6 +153,8 @@ function BuildingAction({ building, onClose }: { building: BuildingType; onClose
       return <WorkshopAction />;
     case 'wall':
       return <WallAction />;
+    case 'bunker':
+      return <BunkerAction />;
     default:
       return <div className="text-center py-8 text-text-muted">功能开发中...</div>;
   }
@@ -645,6 +649,165 @@ function WallAction() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CrannyAction() {
+  const village = useGame((s) => s.village);
+  const lv = village.buildings.cranny || 0;
+  const hide = lv > 0 ? (BUILDING_CONFIGS.cranny.levels[lv - 1].effect.hideAmount || 0) : 0;
+
+  const report = village.lastDefenseReport;
+  const lastStolen = report?.resourcesStolen;
+
+  return (
+    <div className="space-y-3">
+      <div className="border border-border rounded-lg p-3 bg-bg-secondary space-y-2">
+        <h3 className="font-semibold text-text-primary text-sm">🪨 秘窖保护</h3>
+        {lv === 0 ? (
+          <p className="text-xs text-amber-500">尚未建造秘窖 — 被攻击时 25% 资源会被掠夺</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>当前等级</div>
+              <div className="text-text-primary font-semibold text-right">Lv {lv}</div>
+              <div>单次隐藏上限</div>
+              <div className="text-pop font-semibold text-right">{hide.toLocaleString()} / 资源</div>
+              <div>下次升级后</div>
+              <div className="text-emerald-600 font-semibold text-right">
+                {lv < BUILDING_CONFIGS.cranny.maxLevel
+                  ? `${BUILDING_CONFIGS.cranny.levels[lv].effect.hideAmount?.toLocaleString() || 0} / 资源`
+                  : '已满级'}
+              </div>
+            </div>
+            <div className="pt-2 border-t border-border/60 text-[11px] text-text-muted leading-relaxed">
+              被妖兽 / 敌军攻击时，秘窖内的资源不会被掠夺。地窖按**每种资源分别计算**，隐藏数值独立。
+              战败时掠夺率 25%（先减地窖保护量再算）。
+            </div>
+          </>
+        )}
+      </div>
+
+      {report && lastStolen && Object.values(lastStolen).some((n) => n > 0) && (
+        <div className="border border-border rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-text-secondary mb-1">上次入侵结算</h4>
+          <div className="text-[11px] text-text-muted space-y-0.5">
+            <div>来袭：{RAIDER_CONFIGS[report.raiderType].emoji} {RAIDER_CONFIGS[report.raiderType].name} ×{report.raiderCount}</div>
+            {!report.won && (
+              <div className="text-red-400">
+                被掠：
+                {lastStolen.wood > 0 && ` 🪵${lastStolen.wood}`}
+                {lastStolen.clay > 0 && ` 🏺${lastStolen.clay}`}
+                {lastStolen.iron > 0 && ` 🔶${lastStolen.iron}`}
+                {lastStolen.crop > 0 && ` 🌾${lastStolen.crop}`}
+                {' '}(地窖已保护 {Math.max(0, (hide) - Math.max(...Object.values(lastStolen)))} 单位)
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BunkerAction() {
+  const village = useGame((s) => s.village);
+  const doTransfer = useGame((s) => s.transferBunker);
+  const lv = village.buildings.bunker || 0;
+  const cap = lv > 0 ? (BUILDING_CONFIGS.bunker.levels[lv - 1].effect.capacity || 0) : 0;
+  const totalInside = UNIT_ORDER.reduce((s, u) => s + (village.bunkerUnits?.[u] || 0), 0);
+  const used = totalInside;
+
+  if (lv === 0) {
+    return (
+      <div className="border border-border rounded-lg p-3 bg-bg-secondary">
+        <h3 className="font-semibold text-text-primary text-sm mb-2">🕳️ 藏兵洞</h3>
+        <p className="text-xs text-amber-500 leading-relaxed">
+          藏兵洞尚未建造。建造后可将士兵转入地堡，在妖兽入侵与敌军劫掠时毫发无损。
+          需要前置：封禅台 Lv5 + 点将台 Lv3。
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="border border-border rounded-lg p-3 bg-bg-secondary">
+        <div className="flex items-center justify-between mb-1.5">
+          <h3 className="font-semibold text-text-primary text-sm">🕳️ 藏兵洞</h3>
+          <span className={`text-xs font-semibold ${used >= cap ? 'text-red-400' : 'text-emerald-400'}`}>
+            {used.toLocaleString()} / {cap.toLocaleString()}
+          </span>
+        </div>
+        <div className="w-full bg-bg-primary rounded-full h-2 overflow-hidden">
+          <div
+            className={`h-full transition-all ${used >= cap ? 'bg-red-500' : 'bg-stone-500'}`}
+            style={{ width: `${Math.min(100, (used / cap) * 100)}%` }}
+          />
+        </div>
+        <p className="text-[11px] text-amber-400/80 mt-2 leading-relaxed">
+          ⚠ 藏兵洞内士兵<strong className="text-amber-300">不参与</strong>村内任何防御战（妖兽入侵 / NPC 反击 / PvP 防御），来犯时毫发无损。
+          训练出来的兵默认在外部池，需手动转入地堡。
+        </p>
+      </div>
+
+      <div className="border border-border rounded-lg p-3 space-y-2">
+        <h4 className="text-xs font-semibold text-text-secondary mb-1">⚔ 兵种藏兵控制</h4>
+        {UNIT_ORDER.map((u) => {
+          const outside = village.units[u] || 0;
+          const inside = village.bunkerUnits?.[u] || 0;
+          const display = getUnitDisplay(village.tribe, u);
+          const room = Math.max(0, cap - used);
+          return (
+            <div key={u} className="flex items-center gap-2 text-xs py-1 border-b border-border/40 last:border-0">
+              <span className="text-lg w-6 text-center">{display.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-text-primary font-medium truncate">{display.name}</div>
+                <div className="text-[10px] text-text-muted">
+                  外部 <span className="text-text-secondary">{outside}</span>
+                  {' · '}地堡内 <span className="text-emerald-400">{inside}</span>
+                </div>
+              </div>
+              <div className="flex gap-1 flex-shrink-0">
+                <button
+                  disabled={inside === 0}
+                  onClick={() => doTransfer(u, -1)}
+                  className="px-2 py-1 text-[11px] rounded bg-bg-secondary border border-border hover:border-amber-500/60 disabled:opacity-30 disabled:hover:border-border"
+                  title="转出 1"
+                >−</button>
+                <button
+                  disabled={inside === 0}
+                  onClick={() => doTransfer(u, -inside)}
+                  className="px-1.5 py-1 text-[11px] rounded bg-bg-secondary border border-border hover:border-amber-500/60 disabled:opacity-30 disabled:hover:border-border"
+                  title="全部转出"
+                >全出</button>
+                <button
+                  disabled={outside === 0 || room === 0}
+                  onClick={() => doTransfer(u, 1)}
+                  className="px-2 py-1 text-[11px] rounded bg-stone-700 border border-stone-500 hover:bg-stone-600 disabled:opacity-30 disabled:hover:bg-stone-700"
+                  title="转入 1"
+                >＋</button>
+                <button
+                  disabled={outside === 0 || room === 0}
+                  onClick={() => {
+                    const move = Math.min(outside, room);
+                    if (move > 0) doTransfer(u, move);
+                  }}
+                  className="px-1.5 py-1 text-[11px] rounded bg-stone-700 border border-stone-500 hover:bg-stone-600 disabled:opacity-30 disabled:hover:bg-stone-700"
+                  title="尽量转入剩余容量"
+                >尽转</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="text-[10px] text-text-muted text-center pt-1">
+        容量 = 地堡等级 × 10　·　下次升级 → 总容量 {lv < BUILDING_CONFIGS.bunker.maxLevel
+          ? BUILDING_CONFIGS.bunker.levels[lv].effect.capacity
+          : '已满级'}
+      </div>
     </div>
   );
 }

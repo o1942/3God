@@ -145,6 +145,7 @@ export function createInitialVillage(tribe: TribeType = DEFAULT_TRIBE): VillageS
     buildQueue: [],
     trainQueue: [],
     units: { ...EMPTY_UNITS },
+    bunkerUnits: {},
     camps: createInitialCamps(),
     players: generateNpcVillages(),
     marchQueue: [],

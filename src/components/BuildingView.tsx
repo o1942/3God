@@ -23,6 +23,7 @@ const VILLAGE_LAYOUT: Record<BuildingType, Slot> = {
   embassy:      { top: 52, left: 68, size: 1 },   // 右下帐篷
   academy:      { top: 57, left: 55, size: 1 },   // 下方帐篷
   barracks:     { top: 64, left: 60, size: 1 },   // 下方帐篷
+  bunker:       { top: 68, left: 45, size: 1 },   // 藏兵洞（地下坑洞，底部中央）
   wall:         { top: 50, left: 50, size: 1 },   // 城墙（整圈）
 };
 
@@ -39,13 +40,14 @@ const BUILDING_THEME: Partial<Record<BuildingType, { emoji: string; ring: string
   workshop:     { emoji: '🧰', ring: 'ring-gray-300', bg: 'from-gray-400 to-gray-600' },
   smithy:       { emoji: '🔨', ring: 'ring-orange-300', bg: 'from-orange-400 to-orange-600' },
   academy:      { emoji: '📚', ring: 'ring-purple-300', bg: 'from-purple-400 to-purple-600' },
+  bunker:       { emoji: '🕳️', ring: 'ring-stone-400', bg: 'from-stone-700 to-stone-900' },
   wall:         { emoji: '🧱', ring: 'ring-stone-300', bg: 'from-stone-400 to-stone-600' },
 };
 
 const SLOT_BUILDINGS: BuildingType[] = [
   'mainBuilding', 'warehouse', 'granary', 'smithy',
   'stable', 'cranny', 'rallyPoint', 'market', 'workshop',
-  'embassy', 'academy', 'barracks',
+  'embassy', 'academy', 'barracks', 'bunker',
 ];
 
 const ALL_BUILDINGS: BuildingType[] = [...SLOT_BUILDINGS, 'wall'];

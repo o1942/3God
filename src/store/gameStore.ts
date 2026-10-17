@@ -249,13 +249,20 @@ export function getWallDefense(state: VillageState): { defense: number; defenseB
   return { defense: eff.defense || 0, defenseBonus: eff.defenseBonus || 0 };
 }
 
-// 计算村庄总兵力（含城墙防御加成）
+// 计算村庄总兵力（含城墙防御加成，排除藏兵洞内不参战部队）
 export function computeVillageDefense(state: VillageState) {
   const wall = getWallDefense(state);
   // 守军防御 = 城墙防御加成（坚甲术科技在 aggregateArmy 的 defMultiplier 中处理）
   const defMult = 1 + wall.defenseBonus;
   const atkMult = tribeAttackMultiplier(state) * getAttackTechMultiplier(state.techLevels || {}) * getSmithyAttackBonus(state);
-  const army = aggregateArmy(state.units, state.tribe, atkMult, defMult * getDefenseTechMultiplier(state.techLevels || {}));
+  // 地堡内士兵不参与村内防御战
+  const defendingUnits: Partial<Record<UnitType, number>> = {};
+  for (const u of UNIT_ORDER) {
+    const n = state.units[u] || 0;
+    const b = state.bunkerUnits?.[u] || 0;
+    if (n - b > 0) defendingUnits[u] = n - b;
+  }
+  const army = aggregateArmy(defendingUnits, state.tribe, atkMult, defMult * getDefenseTechMultiplier(state.techLevels || {}));
   return {
     wallDefense: wall.defense,
     army,
@@ -302,16 +309,18 @@ function runInvasion(state: VillageState) {
     troopLossRate = lossRate;
   }
 
-  // 按 HP 占比分摊各兵种损失
-  const remainingUnits = { ...state.units };
+  // 按 HP 占比分摊各兵种损失（仅作用于参战部队，地堡内士兵毫发无损）
+  const remainingUnits: Record<UnitType, number> = { ...state.units };
   const totalHp = army.hp || 1;
   for (const u of UNIT_ORDER) {
-    const n = remainingUnits[u] || 0;
-    if (n <= 0) continue;
-    const unitHp = (UNIT_CONFIGS[u].hp * n) || 1;
+    const total = state.units[u] || 0;
+    const bunkerN = state.bunkerUnits?.[u] || 0;
+    const frontline = total - bunkerN;
+    if (frontline <= 0) continue; // 全在堡里，这兵不用赔
+    const unitHp = (UNIT_CONFIGS[u].hp * frontline) || 1;
     const share = unitHp / totalHp;
-    const lost = Math.min(n, Math.floor(n * troopLossRate * share * 2));
-    remainingUnits[u] = Math.max(0, n - lost);
+    const lost = Math.min(frontline, Math.floor(frontline * troopLossRate * share * 2));
+    remainingUnits[u] = Math.max(0, total - lost);
   }
 
   // 资源掠夺：战败时掠夺（受地窖保护）
@@ -370,6 +379,8 @@ type GameStore = {
   setTribe: (tribe: TribeType) => void;
   // 英雄名册：切换主将（跨部落英雄不可当主将，MVP 强校验）
   setGeneral: (heroId: HeroId) => boolean;
+  // 藏兵洞：转入 / 转出地堡士兵
+  transferBunker: (unit: UnitType, delta: number) => void;
   enqueueFieldUpgrade: (fieldType: FieldType, index: number) => void;
   enqueueBuildingUpgrade: (building: BuildingType) => void;
   cancelTask: (taskId: string) => void;
@@ -974,6 +985,43 @@ export const useGame = create<GameStore>((set, get) => ({
     return ok;
   },
 
+  transferBunker: (unit, delta) => {
+    set((s) => {
+      const v = s.village;
+      const bunkerLv = v.buildings.bunker || 0;
+      if (bunkerLv === 0) { toast.warning('藏兵洞尚未建造'); return s; }
+      const bunkerCfg = BUILDING_CONFIGS.bunker.levels[bunkerLv - 1];
+      const cap = bunkerCfg?.effect.capacity || 0;
+      const curTotal = UNIT_ORDER.reduce((a, u) => a + (v.bunkerUnits?.[u] || 0), 0);
+
+      const curOutside = v.units[unit] || 0;
+      const curInside = v.bunkerUnits?.[unit] || 0;
+      let actualDelta = 0;
+      if (delta > 0) {
+        // 转入地堡：受限于外部兵数 和 地堡剩余容量
+        const room = Math.max(0, cap - curTotal);
+        actualDelta = Math.min(delta, curOutside, room);
+        if (actualDelta <= 0) {
+          if (room === 0) toast.warning('藏兵洞容量已满，请先升级');
+          return s;
+        }
+      } else if (delta < 0) {
+        // 转出地堡：受限于内部兵数
+        actualDelta = Math.max(delta, -curInside);
+        if (actualDelta >= 0) return s;
+      } else {
+        return s;
+      }
+
+      const nu: Record<UnitType, number> = { ...v.units };
+      nu[unit] = Math.max(0, (nu[unit] || 0) - actualDelta);
+      const nb: Partial<Record<UnitType, number>> = { ...v.bunkerUnits };
+      const newInside = Math.max(0, (nb[unit] || 0) + actualDelta);
+      if (newInside > 0) nb[unit] = newInside; else delete nb[unit];
+      return { village: { ...v, units: nu, bunkerUnits: nb } };
+    });
+  },
+
   tick: () => {
     set((s) => {
       const now = Date.now();
@@ -1470,17 +1518,19 @@ export const useGame = create<GameStore>((set, get) => ({
                     troopLossRate = Math.min(0.95, 1 - defenderDef / (raiderAtk.attack * 1.2));
                   }
 
-                  // 分摊守军损失
-                  const remainingUnits = { ...v.units };
+                  // 分摊守军损失（仅参战部队，地堡内毫发无损）
+                  const remainingUnits: Record<UnitType, number> = { ...v.units };
                   const totalHp = army.hp || 1;
                   const lostByUnit: Partial<Record<UnitType, number>> = {};
                   for (const u of UNIT_ORDER) {
-                    const n = remainingUnits[u] || 0;
-                    if (n <= 0) continue;
-                    const unitHp = (UNIT_CONFIGS[u].hp * n) || 1;
+                    const total = v.units[u] || 0;
+                    const bunkerN = v.bunkerUnits?.[u] || 0;
+                    const frontline = total - bunkerN;
+                    if (frontline <= 0) continue;
+                    const unitHp = (UNIT_CONFIGS[u].hp * frontline) || 1;
                     const share = unitHp / totalHp;
-                    const lost = Math.min(n, Math.floor(n * troopLossRate * share * 2));
-                    remainingUnits[u] = Math.max(0, n - lost);
+                    const lost = Math.min(frontline, Math.floor(frontline * troopLossRate * share * 2));
+                    remainingUnits[u] = Math.max(0, total - lost);
                     if (lost > 0) lostByUnit[u] = lost;
                   }
                   v.units = remainingUnits;
@@ -2412,6 +2462,22 @@ function loadVillage(playerName?: string): VillageState {
           : tribe === 'huang'
             ? HERO_ORDER.map((id) => ({ id, acquired: true, isGeneral: id === 'xuanyuan' }))
             : HERO_ORDER.map((id) => ({ id, acquired: true, isGeneral: id === 'chiyou' }));
+      }
+      // 地堡迁移：旧存档无 bunkerUnits；若 bunker 总兵力 > 地堡容量，自动超量溢出到外部
+      parsed.bunkerUnits = parsed.bunkerUnits ?? {};
+      const bunkerLv = parsed.buildings?.bunker || 0;
+      const bunkerCap = bunkerLv > 0 ? (BUILDING_CONFIGS.bunker.levels[bunkerLv - 1]?.effect.capacity || 0) : 0;
+      let totalInBunker = UNIT_ORDER.reduce((s, u) => s + (parsed.bunkerUnits?.[u] || 0), 0);
+      if (totalInBunker > bunkerCap) {
+        // 从高 HP 兵种开始往回吐（更有价值的兵优先溢出）
+        for (const u of UNIT_ORDER) {
+          if (totalInBunker <= bunkerCap) break;
+          const cur = parsed.bunkerUnits[u] || 0;
+          const overflow = cur - Math.max(0, cur - (totalInBunker - bunkerCap));
+          parsed.bunkerUnits[u] = Math.max(0, cur - overflow);
+          parsed.units[u] = (parsed.units[u] || 0) + overflow;
+          totalInBunker -= overflow;
+        }
       }
       return parsed;
     }

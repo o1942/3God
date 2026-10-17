@@ -183,6 +183,13 @@ export const BUILDING_CONFIGS: Record<BuildingType, BuildingConfig> = {
     30, 20, [{ building: 'mainBuilding', level: 3 }, { building: 'rallyPoint', level: 1 }],
     (lv) => ({ defense: 80 * lv, defenseBonus: 0.04 * lv })
   ),
+  bunker: buildBuildingConfig(
+    'bunker', '藏兵洞', '🕳️',
+    '地堡深处的隐秘坑道，可藏匿士兵使其不参与村内防御战，躲过妖兽入侵与敌军劫掠。等级越高容量越大。',
+    { wood: 120, clay: 180, iron: 100, crop: 80 },
+    30, 15, [{ building: 'mainBuilding', level: 5 }, { building: 'rallyPoint', level: 3 }],
+    (lv) => ({ capacity: lv * 10 })
+  ),
 };
 
 function buildBuildingConfig(

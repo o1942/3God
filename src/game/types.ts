@@ -60,7 +60,8 @@ export type BuildingType =
   | 'academy'
   | 'stable'
   | 'workshop'
-  | 'wall';
+  | 'wall'
+  | 'bunker';
 
 export type FieldLevel = {
   level: number;
@@ -155,6 +156,8 @@ export type VillageState = {
   trainQueue: TrainTask[];
   // 已训练士兵数量（多兵种）
   units: Record<UnitType, number>;
+  // 藏兵洞：转入地堡的士兵，不参与村内防御战
+  bunkerUnits: Partial<Record<UnitType, number>>;
   // 已发现的野怪据点（id -> 当前强盗数）
   camps: Record<string, CampState>;
   // 地图上的 NPC 敌方部落（PVP 阶段1）

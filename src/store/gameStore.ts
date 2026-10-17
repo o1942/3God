@@ -262,15 +262,16 @@ export function computeVillageDefense(state: VillageState) {
   };
 }
 
-// 生成入侵波次（根据玩家进度缩放）
+// 生成入侵波次（根据玩家进度缩放，避免正反馈死循环）
 function generateInvasion(state: VillageState): { count: number; type: RaiderType } {
   const totalUnits = Object.values(state.units).reduce((a, b) => a + b, 0);
   const buildingLevels = Object.values(state.buildings).reduce((a, b) => a + (b || 0), 0);
-  // 波次强度：基础 5 + 兵力 × 0.4 + 建筑等级 × 0.3
-  const count = Math.max(5, Math.floor(5 + totalUnits * 0.4 + buildingLevels * 0.3));
+  // 波次强度：基础 5 + 兵力 × 0.2 + 建筑等级 × 0.1，上限 30 只
+  // 系数调平：兵力/建筑只提供缓慢增长，避免"兵越多妖兽越多"的死亡螺旋
+  const count = Math.max(5, Math.min(30, Math.floor(5 + totalUnits * 0.2 + buildingLevels * 0.1)));
   // 妖兽类型按进度解锁
   const types: RaiderType[] = ['demon', 'wolf', 'mountainSpirit', 'serpent', 'demonKing'];
-  const maxIdx = Math.min(types.length - 1, Math.floor(buildingLevels / 8));
+  const maxIdx = Math.min(types.length - 1, Math.floor(buildingLevels / 15));
   const type = types[Math.floor(Math.random() * (maxIdx + 1))];
   return { count, type };
 }
@@ -292,12 +293,12 @@ function runInvasion(state: VillageState) {
   if (defPower >= atkPower) {
     // 守军胜：妖兽全灭，城墙吸收部分伤害，守军少量损失
     won = true;
-    const lossRate = Math.min(0.5, atkPower / (defPower * 2));
-    troopLossRate = lossRate * 0.6; // 城墙扛了一半伤害
+    const lossRate = Math.min(0.4, atkPower / (defPower * 2));
+    troopLossRate = lossRate * 0.5; // 城墙扛了大半伤害
   } else {
-    // 妖兽胜：城墙被摧毁，守军损失惨重
+    // 妖兽胜：城墙被摧毁，守军损失过半（留些种子兵让玩家可恢复，不死循环）
     won = false;
-    const lossRate = Math.min(0.95, 1 - defPower / (atkPower * 1.2));
+    const lossRate = Math.min(0.7, 1 - defPower / (atkPower * 1.5));
     troopLossRate = lossRate;
   }
 
@@ -1094,14 +1095,16 @@ export const useGame = create<GameStore>((set, get) => ({
       // 新手保护期或主动护盾生效中：妖兽不敢进犯，跳过本次入侵
       if (now >= v.nextInvasionAt) {
         if (isShielded(v)) {
-          v.nextInvasionAt = now + 5 * 60 * 1000;
+          v.nextInvasionAt = now + 10 * 60 * 1000; // 护盾期间重置周期不触发
         } else {
           const invasion = runInvasion(v);
           v.lastDefenseReport = invasion.report;
           v.units = invasion.remainingUnits;
           v.resources = invasion.remainingResources;
-          // 下次入侵：5 分钟后
-          v.nextInvasionAt = now + 5 * 60 * 1000;
+          // 基础周期 10 分钟；战败后给 15 分钟休整冷却（种子兵能喘口气）
+          const baseInterval = 10 * 60 * 1000;
+          const defeatCooldown = 15 * 60 * 1000;
+          v.nextInvasionAt = now + (invasion.report.won ? baseInterval : defeatCooldown);
           if (invasion.report.won) {
             toast.success(`🛡️ 成功抵御 ${invasion.report.raiderCount} 只妖兽入侵！`);
             playSound('defense_win');
@@ -2374,7 +2377,7 @@ function loadVillage(playerName?: string): VillageState {
       parsed.marchQueue = parsed.marchQueue || [];
       parsed.techLevels = parsed.techLevels ?? {};
       parsed.researchQueue = parsed.researchQueue ?? [];
-      parsed.nextInvasionAt = parsed.nextInvasionAt ?? (Date.now() + 5 * 60 * 1000);
+      parsed.nextInvasionAt = parsed.nextInvasionAt ?? (Date.now() + 10 * 60 * 1000);
       parsed.jade = parsed.jade ?? 0;
       parsed.completedQuests = parsed.completedQuests ?? [];
       parsed.accelUsedToday = parsed.accelUsedToday ?? 0;

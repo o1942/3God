@@ -150,7 +150,7 @@ export function createInitialVillage(tribe: TribeType = DEFAULT_TRIBE): VillageS
     marchQueue: [],
     techLevels: {},
     researchQueue: [],
-    nextInvasionAt: Date.now() + 5 * 60 * 1000,
+    nextInvasionAt: Date.now() + 10 * 60 * 1000,
     jade: 100,
     accelUsedToday: 0,
     accelResetAt: Date.now() + 24 * 60 * 60 * 1000,

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { BuildingType, ResourceType } from '../game/types';
 import { BUILDING_CONFIGS } from '../game/config';
 import { SPEED_MULTIPLIER } from '../game/initialState';
-import { UNIT_CONFIGS, UNIT_ORDER, computeUpkeep, getUnitDisplay, getUnitStats } from '../game/units';
+import { FORMATIONS, FORMATION_ORDER, UNIT_CONFIGS, UNIT_ORDER, computeUpkeep, getUnitDisplay, getUnitStats } from '../game/units';
 import { computeBuildSpeed, computeVillageDefense, getMarketMaxTrade, getMarketTaxRate, getSmithyAttackBonus, getWallDefense, useGame } from '../store/gameStore';
 import { RAIDER_CONFIGS } from '../game/units';
 import { TechTreePanel } from './TechTreePanel';
@@ -531,6 +531,34 @@ function AcademyAction() {
         </div>
       </div>
 
+      {/* 阵型解锁进度 */}
+      <div className="border border-border rounded-lg p-3 bg-bg-secondary">
+        <h4 className="text-xs font-semibold text-text-secondary mb-2">🪖 阵型研习进度</h4>
+        <div className="grid grid-cols-2 gap-1.5">
+          {FORMATION_ORDER.map((f) => {
+            const cfg = FORMATIONS[f];
+            const unlocked = cfg.academyReq <= lv;
+            return (
+              <div
+                key={f}
+                className={`text-[10px] border rounded p-1.5 leading-tight
+                  ${unlocked
+                    ? 'border-emerald-500/40 bg-emerald-900/20 text-emerald-300'
+                    : 'border-border/60 bg-bg-primary/40 text-text-muted'}`}
+              >
+                <div className="flex items-center gap-1">
+                  <span>{cfg.emoji}</span>
+                  <span className="font-semibold">{cfg.name}</span>
+                  {!unlocked && <span className="ml-auto text-[9px] opacity-70">🔒 Lv{cfg.academyReq}</span>}
+                  {unlocked && <span className="ml-auto text-[9px] text-emerald-400">✓</span>}
+                </div>
+                <div className="opacity-80">{cfg.desc}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {lv > 0 && (
         <button
           onClick={() => setShowTech(true)}
@@ -544,7 +572,7 @@ function AcademyAction() {
       {lv === 0 && (
         <div className="border border-dashed border-border rounded-lg p-4 text-center">
           <div className="text-3xl mb-2">🔬</div>
-          <p className="text-xs text-text-muted">升级灵台后开启科技研发</p>
+          <p className="text-xs text-text-muted">升级灵台后开启科技研发与阵型研习</p>
         </div>
       )}
 

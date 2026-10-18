@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { CampState, FormationType, NpcVillage, TribeType, UnitType } from '../game/types';
-import { CAMP_TEMPLATES, FORMATIONS, FORMATION_ORDER, GRID_SIZE, UNIT_ORDER, VILLAGE_POSITION, calcMarchTime, getRaiderConfig, getUnitDisplay, predictBattle, predictPvPBattle } from '../game/units';
+import { CAMP_TEMPLATES, FORMATIONS, FORMATION_ORDER, GRID_SIZE, UNIT_ORDER, VILLAGE_POSITION, calcMarchTime, getBestFormation, getRaiderConfig, getUnitDisplay, predictBattle, predictPvPBattle } from '../game/units';
 import { BUILDING_CONFIGS } from '../game/config';
 import { tribeAttackMultiplier, heroBattleMultipliers, useGame } from '../store/gameStore';
 import { isShielded, shieldRemainingMs } from '../game/shield';
@@ -20,7 +20,11 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
   const [selectedCampId, setSelectedCampId] = useState<string | null>(null);
   const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null);
   const [deployed, setDeployed] = useState<Partial<Record<UnitType, number>>>({});
-  const [formation, setFormation] = useState<FormationType>('wings');
+  const academyLv = village.buildings.academy || 0;
+  // 默认阵型按灵台等级自动选择最低可用
+  const [formation, setFormation] = useState<FormationType>(() =>
+    getBestFormation(Math.max(1, academyLv)),
+  );
   // 每秒触发重渲染，更新行军进度条
   const [, forceTick] = useState(0);
   useEffect(() => {
@@ -360,18 +364,27 @@ export function MapPanel({ onClose }: { onClose: () => void }) {
                 {/* 阵型选择（仅出征时显示） */}
                 {!selectedCamp.occupied && selectedCamp.raiders > 0 && (
                   <div className="border border-border rounded-lg p-3 bg-bg-secondary">
-                    <h3 className="font-semibold text-text-primary text-sm mb-2">🪖 选择阵型</h3>
+                    <h3 className="font-semibold text-text-primary text-sm mb-2">🪖 选择阵型 <span className="text-[10px] text-text-muted font-normal">（由灵台 Lv{academyLv} 解锁）</span></h3>
                     <div className="grid grid-cols-2 gap-2">
                       {FORMATION_ORDER.map((f) => {
                         const cfg = FORMATIONS[f];
+                        const unlocked = cfg.academyReq <= academyLv;
                         const active = formation === f;
                         return (
                           <button
                             key={f}
+                            disabled={!unlocked}
                             onClick={() => setFormation(f)}
-                            className={`text-left border-2 rounded-lg p-2 transition-all
-                              ${active ? 'border-pop bg-pop/5' : 'border-border bg-bg-primary hover:border-pop'}`}
+                            className={`text-left border-2 rounded-lg p-2 transition-all relative
+                              ${!unlocked ? 'border-border/50 bg-bg-primary/40 opacity-60 cursor-not-allowed'
+                                : active ? 'border-pop bg-pop/5'
+                                : 'border-border bg-bg-primary hover:border-pop'}`}
                           >
+                            {!unlocked && (
+                              <span className="absolute top-1 right-1 text-[9px] text-amber-400 bg-amber-900/40 border border-amber-500/40 px-1 rounded">
+                                🔒 灵台Lv{cfg.academyReq}
+                              </span>
+                            )}
                             <div className="flex items-center gap-1">
                               <span className="text-lg">{cfg.emoji}</span>
                               <span className="text-sm font-semibold text-text-primary">{cfg.name}</span>

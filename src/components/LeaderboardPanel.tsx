@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { FormationType, TribeType, UnitType } from '../game/types';
-import { FORMATIONS, FORMATION_ORDER, UNIT_ORDER, getUnitDisplay, predictPvPBattle } from '../game/units';
+import { FORMATIONS, FORMATION_ORDER, UNIT_ORDER, getBestFormation, getUnitDisplay, predictPvPBattle } from '../game/units';
 import { BUILDING_CONFIGS } from '../game/config';
 import { TRIBE_CONFIGS } from '../game/tribes';
 import { getScoutCostMultiplier } from '../game/tech';
@@ -19,7 +19,10 @@ export function LeaderboardPanel({ onClose }: { onClose: () => void }) {
   const [sortKey, setSortKey] = useState<SortKey>('power');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [deployed, setDeployed] = useState<Partial<Record<UnitType, number>>>({});
-  const [formation, setFormation] = useState<FormationType>('wings');
+  const academyLv = village.buildings.academy || 0;
+  const [formation, setFormation] = useState<FormationType>(() =>
+    getBestFormation(Math.max(1, academyLv)),
+  );
   const [scouted, setScouted] = useState<Set<string>>(new Set());
 
   const rallyLv = village.buildings.rallyPoint || 0;
@@ -216,18 +219,29 @@ export function LeaderboardPanel({ onClose }: { onClose: () => void }) {
                             </div>
                             {/* 阵型 */}
                             <div>
-                              <div className="text-[11px] text-text-muted mb-1">阵型</div>
+                              <div className="text-[11px] text-text-muted mb-1">
+                                阵型 <span className="text-[9px] opacity-70">（灵台Lv{academyLv}）</span>
+                              </div>
                               <div className="grid grid-cols-4 gap-1.5">
-                                {FORMATION_ORDER.map((f) => (
-                                  <button
-                                    key={f}
-                                    onClick={() => setFormation(f)}
-                                    className={`py-1 rounded text-[11px] border transition
-                                      ${formation === f ? 'bg-pop text-white border-pop' : 'bg-bg-card text-text-secondary border-border'}`}
-                                  >
-                                    {FORMATIONS[f].name}
-                                  </button>
-                                ))}
+                                {FORMATION_ORDER.map((f) => {
+                                  const cfg = FORMATIONS[f];
+                                  const unlocked = cfg.academyReq <= academyLv;
+                                  return (
+                                    <button
+                                      key={f}
+                                      disabled={!unlocked}
+                                      onClick={() => setFormation(f)}
+                                      title={unlocked ? cfg.desc : `需要灵台 Lv${cfg.academyReq}`}
+                                      className={`py-1 rounded text-[11px] border transition relative
+                                        ${!unlocked ? 'opacity-40 cursor-not-allowed bg-bg-card text-text-muted border-border/50'
+                                          : formation === f ? 'bg-pop text-white border-pop'
+                                          : 'bg-bg-card text-text-secondary border-border'}`}
+                                    >
+                                      {cfg.name}
+                                      {!unlocked && <span className="absolute -top-1 -right-1 text-[8px]">🔒</span>}
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
                             {/* 预估 */}

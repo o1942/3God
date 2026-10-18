@@ -3,7 +3,7 @@ import type { BattleReport, BuildTask, BuildTarget, FieldType, BuildingType, For
 import { BUILDING_CONFIGS, FIELD_CONFIGS } from '../game/config';
 import { SPEED_MULTIPLIER, createInitialVillage } from '../game/initialState';
 import { QUESTS, buildQuestContext } from '../game/quests';
-import { UNIT_CONFIGS, UNIT_ORDER, aggregateArmy, aggregateRaiders, calcMarchTime, computeUpkeep, FORMATIONS, getUnitDisplay, simulateBattle, CAMP_TEMPLATES, WORLD_BOSS_CONFIG, REALM_CONFIG, RAIDER_CONFIGS, GRID_SIZE } from '../game/units';
+import { UNIT_CONFIGS, UNIT_ORDER, aggregateArmy, aggregateRaiders, calcMarchTime, computeUpkeep, FORMATIONS, getUnitDisplay, simulateBattle, CAMP_TEMPLATES, WORLD_BOSS_CONFIG, REALM_CONFIG, RAIDER_CONFIGS, GRID_SIZE, getBestFormation } from '../game/units';
 import { OFFLINE_CAP_MS, OFFLINE_THRESHOLD_MS, SEASON_MILESTONES_BY_POINTS, SEASON_POINT_RULES, checkSeasonRoll } from '../game/season';
 import { XP_RULES, resolveLevel } from '../game/level';
 import { DAILY_BONUS_TIERS, DAILY_TASKS, createInitialDaily, todayKey, type DailyMetric, type DailyState, type DailyTaskId } from '../game/dailyTasks';
@@ -267,6 +267,13 @@ export function computeVillageDefense(state: VillageState) {
     wallDefense: wall.defense,
     army,
   };
+}
+
+// 阵型守卫：灵台等级不足时自动降级到可用的最强阵型（防 console 绕过）
+function clampFormation(v: VillageState, formation: FormationType): FormationType {
+  const academyLv = v.buildings.academy || 0;
+  if (academyLv >= (FORMATIONS[formation].academyReq ?? 0)) return formation;
+  return getBestFormation(Math.max(1, academyLv), true);
 }
 
 // 生成入侵波次（根据玩家进度缩放，避免正反馈死循环）
@@ -1815,6 +1822,7 @@ export const useGame = create<GameStore>((set, get) => ({
   attackCamp: (campId, deployed, formation) => {
     const s = useGame.getState();
     const v = { ...s.village };
+    const formation2 = clampFormation(v, formation);
     const camp = v.camps[campId];
     if (!camp) return;
     if (camp.occupied) {
@@ -1846,7 +1854,7 @@ export const useGame = create<GameStore>((set, get) => ({
       campName: camp.name,
       kind: 'attack',
       units: { ...deployed },
-      formation,
+      formation: formation2,
       startAt: now,
       arriveAt: now + marchSec * 1000,
       status: 'marching',
@@ -1950,6 +1958,7 @@ export const useGame = create<GameStore>((set, get) => ({
   attackPlayer: (npcId, deployed, formation) => {
     const s = useGame.getState();
     const v = { ...s.village };
+    const formation2 = clampFormation(v, formation);
     const npc = v.players?.[npcId];
     if (!npc) return;
     // 废墟期不可攻击
@@ -1977,7 +1986,7 @@ export const useGame = create<GameStore>((set, get) => ({
       campName: npc.name,
       kind: 'pvpAttack',
       units: { ...deployed },
-      formation,
+      formation: formation2,
       startAt: now,
       arriveAt: now + marchSec * 1000,
       status: 'marching',
@@ -2026,6 +2035,7 @@ export const useGame = create<GameStore>((set, get) => ({
   attackRealPlayer: (targetName, deployed, formation) => {
     const s = useGame.getState();
     const v = { ...s.village };
+    const formation2 = clampFormation(v, formation);
     if (targetName === v.playerName) {
       toast.warning('不能攻击自己的村庄');
       return false;
@@ -2054,7 +2064,7 @@ export const useGame = create<GameStore>((set, get) => ({
       campName: targetName,
       kind: 'realAttack',
       units: { ...deployed },
-      formation,
+      formation: formation2,
       startAt: now,
       arriveAt: now + marchSec * 1000,
       status: 'marching',

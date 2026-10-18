@@ -307,16 +307,37 @@ export type FormationConfig = {
   atkMod: number;   // 攻击倍率
   defMod: number;   // 防御倍率
   desc: string;
+  academyReq: number; // 灵台解锁等级
 };
 
 export const FORMATIONS: Record<FormationType, FormationConfig> = {
-  vanguard: { id: 'vanguard', name: '锋矢阵', emoji: '➹', atkMod: 1.20, defMod: 0.90, desc: '前锋突击，攻 +20% / 防 -10%' },
-  shield:   { id: 'shield',   name: '方圆阵', emoji: '⬢', atkMod: 0.90, defMod: 1.25, desc: '结阵自守，攻 -10% / 防 +25%' },
-  wings:    { id: 'wings',    name: '鹤翼阵', emoji: '⋈', atkMod: 1.10, defMod: 1.10, desc: '左右包抄，攻 +10% / 防 +10%' },
-  cone:     { id: 'cone',     name: '锥形阵', emoji: '▲', atkMod: 1.30, defMod: 0.80, desc: '全力突击，攻 +30% / 防 -20%' },
+  vanguard: { id: 'vanguard', name: '锋矢阵', emoji: '➹', atkMod: 1.20, defMod: 0.90, desc: '前锋突击，攻 +20% / 防 -10%', academyReq: 1 },
+  shield:   { id: 'shield',   name: '方圆阵', emoji: '⬢', atkMod: 0.90, defMod: 1.25, desc: '结阵自守，攻 -10% / 防 +25%', academyReq: 3 },
+  wings:    { id: 'wings',    name: '鹤翼阵', emoji: '⋈', atkMod: 1.10, defMod: 1.10, desc: '左右包抄，攻 +10% / 防 +10%', academyReq: 6 },
+  cone:     { id: 'cone',     name: '锥形阵', emoji: '▲', atkMod: 1.30, defMod: 0.80, desc: '全力突击，攻 +30% / 防 -20%', academyReq: 10 },
 };
 
 export const FORMATION_ORDER: FormationType[] = ['vanguard', 'shield', 'wings', 'cone'];
+
+// 工具：灵台等级解锁哪些阵型
+export function getUnlockedFormations(academyLv: number): FormationType[] {
+  return FORMATION_ORDER.filter((f) => FORMATIONS[f].academyReq <= academyLv);
+}
+
+// 工具：灵台等级下最强可用阵型（按综合收益 atk×def 排序）
+export function getBestFormation(academyLv: number, preferAtk = false): FormationType {
+  const unlocked = getUnlockedFormations(academyLv);
+  if (preferAtk) {
+    return unlocked.reduce((best, f) =>
+      (FORMATIONS[f].atkMod > FORMATIONS[best].atkMod ? f : best),
+    unlocked[0]);
+  }
+  return unlocked.reduce((best, f) => {
+    const score = FORMATIONS[f].atkMod * FORMATIONS[f].defMod;
+    const bestScore = FORMATIONS[best].atkMod * FORMATIONS[best].defMod;
+    return score > bestScore ? f : best;
+  }, unlocked[0]);
+}
 
 // ============ 混合部队战斗模拟 ============
 

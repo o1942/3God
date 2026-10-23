@@ -627,21 +627,86 @@ function mergeHeroes(local: VillageState['heroes'], remote: VillageState['heroes
 }
 
 // 补齐远端存档缺失的新字段（远端数据未经 loadVillage 迁移）
+// 与 loadVillage 保持同口径，避免本地/远端字段漂移
 function normalizeRemoteVillage(remote: VillageState): VillageState {
-  const r = remote as Partial<VillageState>;
-  const out = remote as VillageState;
-  out.exp = r.exp ?? 0;
-  out.daily = r.daily ?? createInitialDaily();
-  if (!out.heroes || out.heroes.length === 0) {
-    // 老存档：补齐初始 9 位
-    const tribe = r.tribe ?? 'huang';
-    out.heroes = tribe === 'yan'
-      ? HERO_ORDER.map((id) => ({ id, acquired: true, isGeneral: id === 'shennong' }))
-      : tribe === 'huang'
-        ? HERO_ORDER.map((id) => ({ id, acquired: true, isGeneral: id === 'xuanyuan' }))
-        : HERO_ORDER.map((id) => ({ id, acquired: true, isGeneral: id === 'chiyou' }));
+  const r = remote as any;
+  const fresh = createInitialVillage();
+
+  // 基础字段
+  r.lastTick = r.lastTick ?? Date.now();
+  r.buildQueue = r.buildQueue || [];
+  r.trainQueue = r.trainQueue || [];
+  r.marchQueue = r.marchQueue || [];
+  r.techLevels = r.techLevels ?? {};
+  r.researchQueue = r.researchQueue ?? [];
+  r.nextInvasionAt = r.nextInvasionAt ?? (Date.now() + 10 * 60 * 1000);
+  r.jade = r.jade ?? 0;
+  r.completedQuests = r.completedQuests ?? [];
+  r.accelUsedToday = r.accelUsedToday ?? 0;
+  r.accelResetAt = r.accelResetAt ?? (Date.now() + 24 * 60 * 60 * 1000);
+  r.cosmetics = r.cosmetics ?? fresh.cosmetics;
+  r.equippedCosmetics = r.equippedCosmetics ?? fresh.equippedCosmetics;
+  r.exp = r.exp ?? 0;
+  r.tribe = r.tribe || 'huang';
+  r.tribeChosen = r.tribeChosen ?? true;
+  r.lastSeen = r.lastSeen || Date.now();
+  r.playerName = r.playerName || '';
+
+  // 护盾
+  if (!r.shield) {
+    r.shield = { type: 'newbie', expiresAt: Date.now() + 24 * 60 * 60 * 1000, cooldownUntil: 0 };
   }
-  return out;
+
+  // 单位格式迁移：旧 { legionnaire: N } → 多兵种
+  const oldUnits = r.units as Record<string, number>;
+  r.units = {
+    warrior: oldUnits?.warrior ?? oldUnits?.legionnaire ?? 0,
+    archer: oldUnits?.archer ?? 0,
+    cavalry: oldUnits?.cavalry ?? 0,
+    guard: oldUnits?.guard ?? 0,
+  };
+
+  // 藏兵洞
+  r.bunkerUnits = r.bunkerUnits ?? {};
+
+  // 据点迁移
+  const migratedCamps: any = {};
+  for (const [id, c] of Object.entries((r.camps as Record<string, any>) || {})) {
+    const fc = (fresh.camps as Record<string, any>)[id] || {};
+    migratedCamps[id] = {
+      ...fc,
+      ...c,
+      raiderType: c.raiderType || 'demon',
+      occupied: c.occupied || false,
+      scouted: c.scouted || false,
+      kind: c.kind || 'normal',
+      clearCount: c.clearCount || 0,
+    };
+  }
+  for (const [id, c] of Object.entries(fresh.camps)) {
+    if (!migratedCamps[id]) migratedCamps[id] = { ...c };
+  }
+  r.camps = Object.keys(migratedCamps).length > 0 ? migratedCamps : fresh.camps;
+
+  // NPC 村庄
+  if (!r.players || Object.keys(r.players).length === 0) {
+    r.players = fresh.players;
+  }
+
+  // 英雄
+  if (!r.heroes || r.heroes.length === 0) {
+    r.heroes = fresh.heroes;
+  }
+
+  // 每日任务
+  if (!r.daily) {
+    r.daily = createInitialDaily();
+  }
+
+  // 赛季
+  r.season = r.season || fresh.season;
+
+  return r as VillageState;
 }
 
 // ============== 跨玩家：真实玩家出征结算 ==============

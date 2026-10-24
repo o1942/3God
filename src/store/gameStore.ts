@@ -626,9 +626,8 @@ function mergeHeroes(local: VillageState['heroes'], remote: VillageState['heroes
   return Array.from(map.values()) as VillageState['heroes'];
 }
 
-// 补齐远端存档缺失的新字段（远端数据未经 loadVillage 迁移）
-// 与 loadVillage 保持同口径，避免本地/远端字段漂移
-function normalizeRemoteVillage(remote: VillageState): VillageState {
+// 补齐存档缺失的新字段（本地存档与远端存档共用同一套迁移，避免字段漂移）
+function normalizeVillage(remote: VillageState): VillageState {
   const r = remote as any;
   const fresh = createInitialVillage();
 
@@ -693,7 +692,10 @@ function normalizeRemoteVillage(remote: VillageState): VillageState {
     r.players = fresh.players;
   }
 
-  // 英雄
+  // 英雄：过滤未知 id（旧版本/脏数据会导致面板崩溃），缺失则补初始 9 位
+  if (Array.isArray(r.heroes)) {
+    r.heroes = r.heroes.filter((h: any) => h && HERO_ORDER.includes(h.id));
+  }
   if (!r.heroes || r.heroes.length === 0) {
     r.heroes = fresh.heroes;
   }
@@ -929,7 +931,7 @@ export const useGame = create<GameStore>((set, get) => ({
       if (isSupabaseConfigured) {
         downloadVillage(name).then((remoteRaw) => {
           if (!remoteRaw) { set({ remoteSynced: true }); return; }
-          const remote = normalizeRemoteVillage(remoteRaw);
+          const remote = normalizeVillage(remoteRaw);
           const cur = get().village;
           // 远端更新时间 > 本地 lastTick 才覆盖
           const remoteTs = remote.lastTick || remote.lastSeen || 0;
@@ -973,7 +975,7 @@ export const useGame = create<GameStore>((set, get) => ({
         // subscribeVillage 现在是 async（动态加载 supabase），不阻塞登录流程
         subscribeVillage(name, (remoteRawV) => {
           if (!get().isLoggedIn) return;
-          const remoteV = normalizeRemoteVillage(remoteRawV);
+          const remoteV = normalizeVillage(remoteRawV);
           const cur = get().village;
           // 远端推送代表另一端刚写入的最新状态，直接采用；来袭战报按并集合并
           const merged = mergeIncoming(cur.incomingAttacks, remoteV.incomingAttacks);
@@ -2554,10 +2556,17 @@ function loadVillage(playerName?: string): VillageState {
           totalInBunker -= overflow;
         }
       }
-      return parsed;
+      return normalizeVillage(parsed);
     }
   } catch (e) {
-    console.error('存档读取失败', e);
+    console.error('存档读取失败（本地存档已损坏，将使用新存档）', e);
+    // 损坏的本地存档直接备份后丢弃，避免反复崩溃
+    try {
+      const badKey = playerName ? getSaveKey(playerName) : STORAGE_KEY;
+      const bad = localStorage.getItem(badKey);
+      if (bad) localStorage.setItem(`${badKey}-corrupt-${Date.now()}`, bad);
+      localStorage.removeItem(badKey);
+    } catch { /* ignore */ }
   }
   // 未找到存档：返回带玩家名的新存档
   const fresh = createInitialVillage();

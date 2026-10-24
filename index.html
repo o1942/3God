@@ -10,12 +10,27 @@
       rel="stylesheet"
       href="https://fonts.loli.net/css2?family=Noto+Color+Emoji&display=swap"
     />
-    <script type="module" crossorigin src="./assets/index-DuiHKjCQ.js"></script>
+    <script type="module" crossorigin src="./assets/index-BXacR5MB.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-hePW80VL.js">
     <link rel="modulepreload" crossorigin href="./assets/vendor-react-C36a_n3m.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-dV96NhoQ.css">
+    <link rel="stylesheet" crossorigin href="./assets/index-CwUy5Poq.css">
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // 兜底：若脚本加载/执行失败（CDN 缓存旧 chunk 404、网络中断等），
+      // #root 会一直为空 → 白屏。8 秒后仍未挂载则显示可操作的恢复界面。
+      window.__BOOT_TIMER__ = setTimeout(function () {
+        var root = document.getElementById('root');
+        if (!root || root.children.length > 0) return;
+        root.innerHTML =
+          '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#1a1612;color:#e8ddd0;font-family:system-ui,sans-serif;padding:24px;text-align:center">' +
+          '<div><div style="font-size:40px;margin-bottom:12px">📡</div>' +
+          '<h1 style="font-size:20px;font-weight:700;margin-bottom:8px">页面加载失败</h1>' +
+          '<p style="font-size:13px;opacity:.7;line-height:1.6;margin-bottom:16px">可能是浏览器缓存了旧版本，或网络中断。<br/>点击下方按钮重新加载即可。</p>' +
+          '<button onclick="location.reload(true)" style="padding:10px 18px;border-radius:8px;border:none;background:#c8a24a;color:#1a1612;font-size:14px;font-weight:600;cursor:pointer">重新加载</button>' +
+          '</div></div>';
+      }, 8000);
+    </script>
   </body>
 </html>
